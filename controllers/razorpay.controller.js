@@ -31,7 +31,7 @@ export const createRazorpayOrder = catchAsync(async (req, res) => {
   }
 
   const options = {
-    amount: Math.round(course.price * 100), //amount in paisa
+    amount: Math.round(course.price * 100), //amount in paise
     currency: "INR",
     receipt: `course_${courseId}`,
     notes: {

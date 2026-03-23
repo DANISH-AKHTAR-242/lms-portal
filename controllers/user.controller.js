@@ -52,7 +52,7 @@ export const getCurrentUserProfile = catchAsync(async (req, res) => {
   });
 
   if (!user) {
-    throw new ApiError("User not foound", 404);
+    throw new ApiError("User not found", 404);
   }
 
   res.status(200).json({
