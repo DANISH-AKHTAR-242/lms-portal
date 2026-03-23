@@ -8,6 +8,9 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - JWT authentication (httpOnly cookies)
 - Razorpay payment integration
 - Cloudinary media storage
+- Redis (rate-limit/session metadata/cache when configured)
+- BullMQ queues for async payment/media/notification jobs
+- Object storage + CDN lecture delivery support (S3-compatible)
 
 ## Setup
 1. Install dependencies:
@@ -23,6 +26,23 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
    ```bash
    npm run dev
    ```
+
+## Testing
+- Integration tests:
+  ```bash
+  npm test
+  ```
+  By default, integration specs are skipped in restricted environments.
+  To run them with in-memory MongoDB:
+  ```bash
+  RUN_INTEGRATION_TESTS=true npm test
+  ```
+  Or provide an existing MongoDB URI:
+  ```bash
+  TEST_MONGODB_URI=mongodb://127.0.0.1:27017/lms_test npm test
+  ```
+  - Uses test DB (in-memory MongoDB or provided URI)
+  - Mocks Razorpay and media upload clients in integration tests
 
 ## Key API Routes
 ### Health
@@ -41,6 +61,7 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - `DELETE /api/v1/courses/:courseId`
 - `POST /api/v1/courses/:courseId/lectures`
 - `GET /api/v1/courses/:courseId/students`
+- `GET /api/v1/courses/catalog` (cached catalog)
 
 ### Course (Student)
 - `POST /api/v1/courses/enroll`
@@ -49,9 +70,12 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - `GET /api/v1/courses/:courseId/progress`
 
 ### Payment
-- `POST /api/v1/payment/order`
-- `POST /api/v1/payment/verify`
+- `POST /api/v1/payment/order` (requires `Idempotency-Key` header)
+- `POST /api/v1/payment/verify` (requires `Idempotency-Key` header)
 - `POST /api/v1/payment/failed`
+
+### Observability
+- `GET /metrics` (basic structured metrics snapshot)
 
 ## Security Notes
 - JWT cookie is configured as `httpOnly` and `secure` in production.
@@ -59,3 +83,4 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - Helmet, HPP, Mongo sanitize, and rate limiting are enabled.
 - CSRF protection is enabled for cookie-authenticated requests. Fetch a token from `GET /api/v1/security/csrf-token` and send it via `X-CSRF-Token` for protected routes.
 - In production, CSRF cookie settings require HTTPS (`secure: true` with `sameSite=none`).
+- Add `X-Trace-Id` header to correlate request logs across services.

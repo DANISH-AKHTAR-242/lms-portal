@@ -5,6 +5,7 @@ import {
   deleteCourse,
   enrollInCourse,
   getCourseProgress,
+  listCourseCatalog,
   updateCourse,
   uploadLecture,
   viewEnrolledCourses,
@@ -20,6 +21,7 @@ import {
 
 const router = express.Router();
 
+router.get("/catalog", listCourseCatalog);
 router.post("/", isAuthenticated, authorizeRoles("instructor", "admin"), validateCourseCreate, createCourse);
 router.patch(
   "/:courseId",

@@ -1,4 +1,5 @@
 import { getDBStatus } from "../database/db.js";
+import redisClient, { isRedisEnabled } from "../config/redis.js";
 
 export const checkHealth = async (req, res) => {
   try {
@@ -19,6 +20,10 @@ export const checkHealth = async (req, res) => {
           status: "healthy",
           uptime: process.uptime(),
           memoryUsage: process.memoryUsage(),
+        },
+        redis: {
+          status: isRedisEnabled() ? "healthy" : "disabled",
+          connected: Boolean(redisClient?.isOpen),
         },
       },
     };
