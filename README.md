@@ -1,16 +1,20 @@
-# LMS Portal Backend
+# LMS Portal
 
-Production-ready LMS backend built with Express and MongoDB, including JWT cookie authentication, course management, media handling, payments, observability, and asynchronous workers.
+Production-ready LMS platform with:
+- **Backend API** (Express + MongoDB) for auth, courses, enrollment, payments, observability, and workers
+- **Frontend Web App** (React + Vite) for student and instructor workflows
 
 ## Table of Contents
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
+- [Frontend App](#frontend-app)
 - [Environment Variables](#environment-variables)
 - [Getting Started](#getting-started)
 - [Run](#run)
 - [Testing](#testing)
+- [Docker Compose](#docker-compose)
 - [API Overview](#api-overview)
 - [Security](#security)
 - [Observability](#observability)
@@ -29,6 +33,7 @@ Production-ready LMS backend built with Express and MongoDB, including JWT cooki
 - BullMQ workers for domain events and analytics processing
 - Metrics endpoints (JSON + Prometheus)
 - Cache warming + queue-load-aware graceful degradation on catalog endpoint
+- Modern frontend with React Query, Router, Axios interceptors, and Zustand state
 
 ## Tech Stack
 - **Runtime/API:** Node.js, Express (ES Modules)
@@ -40,6 +45,7 @@ Production-ready LMS backend built with Express and MongoDB, including JWT cooki
 - **Validation:** express-validator, zod
 - **Observability:** Pino, Prometheus (`prom-client`), Sentry
 - **Testing:** Jest, Supertest, mongodb-memory-server
+- **Frontend:** React, Vite, React Router, React Query, Axios, Tailwind CSS, Zustand
 
 ## Project Structure
 ```text
@@ -52,6 +58,7 @@ routes/       Route definitions
 tests/        Jest test suites
 services/     Core business logic
 workers/      Background workers (analytics/events)
+frontend/     React + Vite frontend application
 index.js      Main app bootstrap
 ```
 
@@ -59,6 +66,18 @@ index.js      Main app bootstrap
 - Node.js 18+
 - MongoDB (local/remote)
 - Redis (recommended for production-like setup)
+
+## Frontend App
+Frontend source is in `/frontend`.
+
+Frontend env setup:
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+Frontend environment variables:
+- `VITE_API_URL` (default backend URL, e.g. `http://localhost:5000`)
+- `VITE_RAZORPAY_KEY_ID` (public Razorpay key)
 
 ## Environment Variables
 Copy `.env.example` to `.env` and update values as needed.
@@ -123,33 +142,54 @@ cp .env.example .env
 - `LOG_LEVEL`
 
 ## Getting Started
-1. Install dependencies:
+1. Install backend dependencies:
    ```bash
    npm install
    ```
-2. Configure environment:
+2. Install frontend dependencies:
+   ```bash
+   cd frontend && npm install
+   ```
+3. Configure backend environment:
    ```bash
    cp .env.example .env
    ```
-3. Start the server:
+4. Configure frontend environment:
+   ```bash
+   cp frontend/.env.example frontend/.env
+   ```
+5. Start the backend server:
    ```bash
    npm run dev
    ```
+6. Start the frontend app (new terminal):
+   ```bash
+   cd frontend && npm run dev
+   ```
 
 ## Run
-- Development:
+- Backend development:
   ```bash
   npm run dev
   ```
-- Production:
+- Backend production:
   ```bash
   npm start
   ```
 
-Server runs on `http://localhost:5000` by default.
+Backend runs on `http://localhost:5000` by default.
+
+- Frontend development:
+  ```bash
+  cd frontend && npm run dev
+  ```
+- Frontend production build:
+  ```bash
+  cd frontend && npm run build
+  ```
 
 ## Testing
-Run all tests:
+Run backend tests:
 
 ```bash
 npm test
@@ -166,6 +206,24 @@ Notes:
   ```bash
   TEST_MONGODB_URI=mongodb://127.0.0.1:27017/lms_test npm test
   ```
+
+Frontend quality checks:
+```bash
+cd frontend && npm run lint
+cd frontend && npm run build
+```
+
+## Docker Compose
+The repository includes a multi-service Docker Compose setup in `docker-compose.yml`:
+- `app`, `app-2`, `app-3` (backend instances)
+- `mongo` (MongoDB)
+- `redis` (Redis)
+- `nginx` (reverse proxy/load balancer)
+
+Run:
+```bash
+docker compose up --build
+```
 
 ## API Overview
 ### Health
