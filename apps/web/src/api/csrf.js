@@ -1,3 +1,5 @@
+import { CSRF_TOKEN_ENDPOINT } from '@lms/shared/constants/index';
+
 let csrfToken = null;
 let csrfPromise = null;
 
@@ -13,7 +15,7 @@ export const fetchCsrfToken = async (axiosClient) => {
   if (csrfPromise) return csrfPromise;
 
   csrfPromise = axiosClient
-    .get('/api/v1/security/csrf-token')
+    .get(CSRF_TOKEN_ENDPOINT)
     .then((response) => {
       csrfToken = response?.data?.csrfToken || null;
       return csrfToken;

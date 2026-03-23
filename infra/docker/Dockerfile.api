@@ -1,0 +1,17 @@
+FROM node:20-alpine AS deps
+WORKDIR /workspace
+COPY package*.json ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY packages/shared/package.json ./packages/shared/package.json
+RUN npm ci --workspace @lms/api
+
+FROM node:20-alpine AS runner
+WORKDIR /workspace/apps/api
+ENV NODE_ENV=production
+COPY --from=deps /workspace/node_modules /workspace/node_modules
+COPY --from=deps /workspace/apps/api/node_modules /workspace/apps/api/node_modules
+COPY apps/api ./
+COPY packages/shared /workspace/packages/shared
+COPY .env /workspace/.env
+EXPOSE 5000
+CMD ["node", "index.js"]

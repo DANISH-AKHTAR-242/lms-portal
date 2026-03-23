@@ -1,291 +1,307 @@
-# LMS Portal
+# LMS Portal Monorepo
 
-Production-ready LMS platform with:
-- **Backend API** (Express + MongoDB) for auth, courses, enrollment, payments, observability, and workers
-- **Frontend Web App** (React + Vite) for student and instructor workflows
+A production-ready Learning Management System with a unified full-stack monorepo architecture.
 
-## Table of Contents
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Frontend App](#frontend-app)
-- [Environment Variables](#environment-variables)
-- [Getting Started](#getting-started)
-- [Run](#run)
-- [Testing](#testing)
-- [Docker Compose](#docker-compose)
-- [API Overview](#api-overview)
-- [Security](#security)
-- [Observability](#observability)
-- [Architecture Notes](#architecture-notes)
-- [Deployment](#deployment)
-- [Useful Files](#useful-files)
+## Project Overview
 
-## Features
-- Role-based LMS workflows for students, instructors, and admins
-- JWT auth with httpOnly cookies and refresh-token flow
-- CSRF protection for cookie-authenticated requests
-- Course catalog, enrollment, lecture progress tracking
-- Razorpay integration for order, verification, and failed payment handling
-- Cloudinary + S3-compatible object storage support
-- Redis-backed caching, rate-limiting metadata, and token/session support
-- BullMQ workers for domain events and analytics processing
-- Metrics endpoints (JSON + Prometheus)
-- Cache warming + queue-load-aware graceful degradation on catalog endpoint
-- Modern frontend with React Query, Router, Axios interceptors, and Zustand state
+LMS Portal provides:
+- secure authentication (cookie-based JWT + refresh flow)
+- course catalog and course details
+- enrollments and Razorpay-powered payments
+- lecture delivery with video playback and progress tracking
+- instructor workflows for course and lecture management
+- analytics/event processing with Redis + BullMQ workers
 
-## Tech Stack
-- **Runtime/API:** Node.js, Express (ES Modules)
-- **Database:** MongoDB, Mongoose
-- **Cache/Queues:** Redis, BullMQ, IORedis
-- **Payments:** Razorpay
-- **Media:** Cloudinary, AWS S3 SDK (S3-compatible)
-- **Security:** Helmet, HPP, express-mongo-sanitize, csurf, express-rate-limit
-- **Validation:** express-validator, zod
-- **Observability:** Pino, Prometheus (`prom-client`), Sentry
-- **Testing:** Jest, Supertest, mongodb-memory-server
-- **Frontend:** React, Vite, React Router, React Query, Axios, Tailwind CSS, Zustand
+This repository is now organized as a **single monorepo** with backend API, frontend web app, shared contracts, and infrastructure in one place.
 
-## Project Structure
+## Architecture
+
+- **Monorepo layout** with `apps/api` and `apps/web`
+- **Shared layer** (`packages/shared`) for constants and API contract typings
+- **Modular backend** with clear request flow:
+  - routes/controllers → services → models (repository boundary)
+- **Frontend integration** using React Query + Axios interceptors (CSRF + refresh)
+- **Infra** includes Docker + Nginx reverse proxy for same-domain API + UI serving
+
+## Folder Structure (Detailed)
+
 ```text
-config/       App configuration (redis, queues, metrics, sentry, storage, etc.)
-controllers/  Route orchestration and request/response handling
-database/     MongoDB connection setup
-middleware/   Auth, CSRF, validation, idempotency, observability
-models/       Mongoose models
-routes/       Route definitions
-tests/        Jest test suites
-services/     Core business logic
-workers/      Background workers (analytics/events)
-frontend/     React + Vite frontend application
-index.js      Main app bootstrap
+.
+├── apps/
+│   ├── api/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── database/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── tests/
+│   │   │   ├── integration/
+│   │   │   └── utils/
+│   │   ├── utils/
+│   │   ├── workers/
+│   │   ├── ecosystem.config.cjs
+│   │   ├── index.js
+│   │   ├── jest.config.js
+│   │   └── package.json
+│   └── web/
+│       ├── public/
+│       ├── src/
+│       │   ├── api/
+│       │   ├── components/
+│       │   ├── features/
+│       │   │   ├── auth/
+│       │   │   ├── courses/
+│       │   │   └── payments/
+│       │   ├── hooks/
+│       │   ├── pages/
+│       │   ├── store/
+│       │   └── utils/
+│       ├── .env.example
+│       ├── package.json
+│       └── vite.config.js
+├── packages/
+│   └── shared/
+│       ├── api-types/
+│       │   └── common.d.ts
+│       ├── constants/
+│       │   └── index.js
+│       ├── types/
+│       │   ├── course.d.ts
+│       │   └── user.d.ts
+│       └── package.json
+├── infra/
+│   ├── docker/
+│   │   ├── Dockerfile.api
+│   │   ├── Dockerfile.web
+│   │   └── docker-compose.yml
+│   └── nginx/
+│       └── nginx.conf
+├── docs/
+├── .env.example
+├── package.json
+└── package-lock.json
 ```
 
-## Prerequisites
+## Backend Documentation
+
+### API Base
+- Prefix: `/api/v1`
+
+### Main API routes
+- **Security**
+  - `GET /api/v1/security/csrf-token`
+- **Auth/User**
+  - `POST /api/v1/user/signup`
+  - `POST /api/v1/user/signin`
+  - `POST /api/v1/user/signout`
+  - `POST /api/v1/user/refresh`
+  - `GET /api/v1/user/profile`
+  - `PATCH /api/v1/user/profile`
+- **Courses**
+  - `GET /api/v1/courses/catalog`
+  - `GET /api/v1/courses/:courseId/progress`
+  - `POST /api/v1/courses/enroll`
+  - `GET /api/v1/courses/enrolled`
+  - `POST /api/v1/courses/:courseId/lectures/:lectureId/watch`
+  - `POST /api/v1/courses` (instructor/admin)
+  - `POST /api/v1/courses/:courseId/lectures` (instructor/admin)
+  - `GET /api/v1/courses/:courseId/students` (instructor/admin)
+- **Payments**
+  - `POST /api/v1/payment/order`
+  - `POST /api/v1/payment/verify`
+  - `POST /api/v1/payment/failed`
+
+### Auth Flow
+1. User signs in via `/api/v1/user/signin`.
+2. Access and refresh tokens are maintained via **httpOnly cookies**.
+3. Frontend calls `/api/v1/user/refresh` on 401 once and retries original request.
+4. Signout clears server-side session/refresh state and cookies.
+
+### CSRF Handling
+- CSRF token endpoint: `GET /api/v1/security/csrf-token`
+- Frontend attaches token via `X-CSRF-Token` on mutating requests.
+- CSRF middleware is enabled for cookie-authenticated API requests.
+
+### CORS + Cookie Compatibility
+- `CLIENT_URL` supports single or comma-separated origins.
+- `credentials: true` is enabled.
+- Cookie-based auth is compatible with same-domain proxy setup.
+
+## Frontend Documentation
+
+### Pages
+- `/` → Landing page
+- `/login` → Login page
+- `/signup` → Signup page
+- `/catalog` → Course catalog
+- `/courses/:courseId` → Course details + checkout trigger
+- `/dashboard` → Student dashboard + enrolled/progress
+- `/courses/:courseId/learn` → Video player page
+- `/instructor` → Instructor dashboard
+
+### State Management
+- **React Query** for server state (catalog, progress, enrollments, auth profile)
+- **Zustand** for session/client state
+
+### API Integration
+- Axios client uses `withCredentials: true`
+- Default base URL is `/` (same-domain)
+- Dev proxy in Vite sends `/api`, `/health`, `/metrics` to backend
+- CSRF token fetched lazily and cached
+- Refresh flow implemented in response interceptor
+
+## Frontend ↔ Backend Integration Snippets
+
+### Axios client (CSRF + refresh)
+
+```js
+import axios from 'axios';
+import { API_PREFIX } from '@lms/shared/constants/index';
+
+const api = axios.create({
+  baseURL: '/',
+  withCredentials: true,
+});
+
+api.interceptors.request.use(async (config) => {
+  // attach X-CSRF-Token for mutating requests
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401 && !error.config?._retry) {
+      error.config._retry = true;
+      await api.post(`${API_PREFIX}/user/refresh`, null);
+      return api(error.config);
+    }
+    throw error;
+  }
+);
+```
+
+### Shared API constants
+
+```js
+// packages/shared/constants/index.js
+export const API_PREFIX = '/api/v1';
+export const CSRF_TOKEN_ENDPOINT = `${API_PREFIX}/security/csrf-token`;
+```
+
+## Screenshots
+
+> Replace placeholders with real captures before publishing.
+
+- Landing page: `docs/screenshots/landing-page.png` *(placeholder)*
+- Dashboard: `docs/screenshots/dashboard-page.png` *(placeholder)*
+- Course page: `docs/screenshots/course-detail-page.png` *(placeholder)*
+- Player page: `docs/screenshots/player-page.png` *(placeholder)*
+
+## Setup Instructions
+
+### Prerequisites
 - Node.js 18+
-- MongoDB (local/remote)
-- Redis (recommended for production-like setup)
+- MongoDB
+- Redis (recommended)
 
-## Frontend App
-Frontend source is in `frontend/`.
+### Environment variables
 
-Frontend environment setup:
-```bash
-cp frontend/.env.example frontend/.env
-```
-
-Frontend environment variables:
-- `VITE_API_URL` (default backend URL, e.g., `http://localhost:5000`)
-- `VITE_RAZORPAY_KEY_ID` (public Razorpay key)
-
-## Environment Variables
-Copy `.env.example` to `.env` and update values as needed.
-
+1. API env:
 ```bash
 cp .env.example .env
 ```
 
-### Core
-- `PORT` (default: `5000`)
-- `NODE_ENV` (`development` / `production` / `test`)
-- `CLIENT_URL` (frontend origin for CORS)
+2. Web env:
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+Important variables:
+- `PORT` (API port, default `5000`)
+- `CLIENT_URL` (frontend origin(s), comma-separated if needed)
 - `MONGODB_URI`
-- `SECRET_KEY` (JWT signing key)
+- `SECRET_KEY`
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`
+- `REDIS_URL` (and optional split redis URLs)
+- `VITE_RAZORPAY_KEY_ID` (web)
 
-### Mongo Tuning
-- `MONGO_MAX_POOL_SIZE`
-- `MONGO_MIN_POOL_SIZE`
-- `MONGO_READ_PREFERENCE`
-- `MONGO_READ_CONCERN`
+## Running the Project
 
-### Cloudinary
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
-
-### Razorpay
-- `RAZORPAY_KEY_ID`
-- `RAZORPAY_KEY_SECRET`
-
-### Redis
-- `REDIS_URL`
-- `REDIS_CACHE_URL`
-- `REDIS_QUEUE_URL`
-- `REDIS_RATE_LIMIT_URL`
-- `REDIS_SENTINELS`
-- `REDIS_MASTER_NAME`
-- `REDIS_PASSWORD`
-
-### Queue/Performance Controls
-- `QUEUE_DEPTH_THRESHOLD`
-- `DOMAIN_EVENT_WORKER_CONCURRENCY`
-- `ANALYTICS_WORKER_CONCURRENCY`
-- `ANALYTICS_QUEUE_PARTITION`
-- `PAYMENT_TIMEOUT_MS`
-- `PAYMENT_BULKHEAD_MAX_CONCURRENT`
-- `PAYMENT_BULKHEAD_QUEUE_LIMIT`
-- `ANALYTICS_BATCH_SIZE`
-- `ANALYTICS_BATCH_WINDOW_MS`
-- `ANALYTICS_SNAPSHOT_INTERVAL_MS`
-
-### Object Storage / CDN
-- `OBJECT_STORAGE_BUCKET`
-- `AWS_REGION`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `CDN_BASE_URL`
-
-### Monitoring / Logging
-- `SENTRY_DSN`
-- `SENTRY_TRACES_SAMPLE_RATE`
-- `LOG_LEVEL`
-
-## Getting Started
-1. Install backend dependencies:
-   ```bash
-   npm install
-   ```
-2. Install frontend dependencies:
-   ```bash
-   cd frontend && npm install
-   ```
-3. Configure environment files:
-   ```bash
-   cp .env.example .env
-   cp frontend/.env.example frontend/.env
-   ```
-4. Start the backend server:
-   ```bash
-   npm run dev
-   ```
-5. Start the frontend app (new terminal):
-   ```bash
-   cd frontend && npm run dev
-   ```
-
-## Run
-- Backend development:
-  ```bash
-  npm run dev
-  ```
-- Backend production:
-  ```bash
-  npm start
-  ```
-
-Backend runs on `http://localhost:5000` by default.
-
-- Frontend development:
-  ```bash
-  cd frontend && npm run dev
-  ```
-- Frontend production build:
-  ```bash
-  cd frontend && npm run build
-  ```
-
-## Testing
-Run backend tests:
+### Development (single command)
 
 ```bash
+npm install
+npm run dev
+```
+
+This starts both:
+- API: `apps/api` (`nodemon`)
+- Web: `apps/web` (`vite`)
+
+### Individual app commands
+
+```bash
+npm run dev:api
+npm run dev:web
 npm test
+npm run lint
+npm run build
 ```
 
-Notes:
-- Uses Jest in-band (`--runInBand`).
-- Integration suites are skipped by default in restricted environments.
-- To run integration tests with in-memory MongoDB:
-  ```bash
-  RUN_INTEGRATION_TESTS=true npm test
-  ```
-- To run integration tests against an existing MongoDB instance:
-  ```bash
-  TEST_MONGODB_URI=mongodb://127.0.0.1:27017/lms_test npm test
-  ```
+## Production Mode
 
-Frontend validation:
+### API with PM2 cluster
+
 ```bash
-cd frontend && npm run lint
-cd frontend && npm run build
+cd apps/api
+pm2 start ecosystem.config.cjs
 ```
 
-## Docker Compose
-The repository includes a multi-service Docker Compose setup in `docker-compose.yml`:
-- `app`, `app-2`, `app-3` (backend instances)
-- `mongo` (MongoDB)
-- `redis` (Redis)
-- `nginx` (reverse proxy/load balancer)
+### Web build
 
-Run:
 ```bash
-docker compose up --build
+npm run build
 ```
 
-## API Overview
-### Health
-- `GET /health`
+## Deployment Guide
 
-### Security
-- `GET /api/v1/security/csrf-token`
+### Docker
 
-### Auth & User
-- `POST /api/v1/user/signup`
-- `POST /api/v1/user/signin`
-- `POST /api/v1/user/signout`
-- `POST /api/v1/user/refresh`
-- `GET /api/v1/user/profile`
-- `PATCH /api/v1/user/profile`
+Infrastructure files are in `infra/docker`:
+- `Dockerfile.api`
+- `Dockerfile.web`
+- `docker-compose.yml`
 
-### Courses (Instructor/Admin)
-- `GET /api/v1/courses/catalog`
-- `POST /api/v1/courses`
-- `PATCH /api/v1/courses/:courseId`
-- `DELETE /api/v1/courses/:courseId`
-- `POST /api/v1/courses/:courseId/lectures`
-- `GET /api/v1/courses/:courseId/students`
+Run full stack:
 
-### Courses (Student/Admin)
-- `POST /api/v1/courses/enroll`
-- `GET /api/v1/courses/enrolled`
-- `POST /api/v1/courses/:courseId/lectures/:lectureId/watch`
-- `GET /api/v1/courses/:courseId/progress`
+```bash
+docker compose -f infra/docker/docker-compose.yml up --build
+```
 
-### Payments
-(Authenticated + `Idempotency-Key` header required)
-- `POST /api/v1/payment/order`
-- `POST /api/v1/payment/verify`
-- `POST /api/v1/payment/failed`
+### Nginx
 
-## Security
-- JWT auth token is set via `httpOnly` cookie.
-- CSRF protection is enabled for cookie-authenticated flows.
-  - Fetch CSRF token from `GET /api/v1/security/csrf-token`
-  - Send token in `X-CSRF-Token` header on protected requests
-- Helmet, HPP, NoSQL sanitize, and rate limiting are enabled globally.
-- `sameSite` cookie mode is `none` in production and `strict` in development.
+- Config path: `infra/nginx/nginx.conf`
+- `/api/*` is proxied to API upstream
+- `/` is served via web upstream
+- This enables same-domain browser traffic for cookies + CSRF flows
 
-## Observability
-- `GET /metrics` returns structured JSON metrics snapshot.
-- `GET /metrics/prometheus` returns Prometheus scrape format.
-- Add `X-Trace-Id` to correlate logs and async processing.
-- Sentry integration is available through `SENTRY_DSN`.
+### Domain Setup Notes
 
-## Architecture Notes
-- Modular monolith organized by Auth, Users, Courses, Payments, Media, Notifications, Analytics.
-- Event-driven processing via BullMQ workers and domain events.
-- Redis role separation for cache/queue/rate-limit use cases.
-- Enrollment and lecture progress data are stored in dedicated collections.
-- For a deeper architecture breakdown, see `docs/architecture.md`.
+For production domains:
+- point domain DNS to Nginx ingress/public IP
+- terminate TLS at Nginx (or cloud LB)
+- set secure cookie flags in production
+- set `CLIENT_URL` to deployed frontend origin
 
-## Deployment
-- Docker image: `Dockerfile`
-- Local stack (app, mongo, redis, nginx): `docker-compose.yml`
-- Nginx load balancer config: `ops/nginx/nginx.conf`
-- PM2 process config: `ecosystem.config.cjs`
+## Scaling Notes
 
-## Useful Files
-- `.env.example` — environment variable template
-- `docs/architecture.md` — architecture details and module boundaries
-- `lms-portal.postman_collection.json` — API collection for manual testing
-- `WARP.md` — local development guidance
+- API is stateless and horizontally scalable.
+- PM2 cluster mode is configured for API processes.
+- BullMQ workers can be scaled independently.
+- Redis offloads session/token/rate-limit metadata.
+- Nginx upstream load-balances API instances.
+- Queue-depth-aware graceful degradation protects catalog endpoint under load.
+

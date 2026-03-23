@@ -1,11 +1,12 @@
 import axios from 'axios';
 import { clearCsrfToken, fetchCsrfToken, getCachedCsrfToken } from './csrf';
 import { useAuthStore } from '../store/authStore';
+import { API_PREFIX } from '@lms/shared/constants/index';
 
 const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || '/',
   withCredentials: true,
   timeout: 15000,
 });
@@ -40,7 +41,7 @@ api.interceptors.response.use(
       throw error;
     }
 
-    if (originalRequest.url?.includes('/api/v1/user/refresh')) {
+    if (originalRequest.url?.includes(`${API_PREFIX}/user/refresh`)) {
       useAuthStore.getState().clearSession();
       throw error;
     }
@@ -48,7 +49,7 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     try {
-      await api.post('/api/v1/user/refresh', null);
+      await api.post(`${API_PREFIX}/user/refresh`, null);
       return api(originalRequest);
     } catch (refreshError) {
       useAuthStore.getState().clearSession();

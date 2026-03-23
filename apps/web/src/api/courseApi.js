@@ -1,27 +1,28 @@
+import { API_PREFIX } from '@lms/shared/constants/index';
 import api from './http';
 
 export const getCatalog = async () => {
-  const { data } = await api.get('/api/v1/courses/catalog');
+  const { data } = await api.get(`${API_PREFIX}/courses/catalog`);
   return data?.data || [];
 };
 
 export const getEnrolledCourses = async (params) => {
-  const { data } = await api.get('/api/v1/courses/enrolled', { params });
+  const { data } = await api.get(`${API_PREFIX}/courses/enrolled`, { params });
   return data;
 };
 
 export const getCourseProgress = async (courseId, params) => {
-  const { data } = await api.get(`/api/v1/courses/${courseId}/progress`, { params });
+  const { data } = await api.get(`${API_PREFIX}/courses/${courseId}/progress`, { params });
   return data?.data;
 };
 
 export const watchLecture = async (courseId, lectureId, payload) => {
-  const { data } = await api.post(`/api/v1/courses/${courseId}/lectures/${lectureId}/watch`, payload);
+  const { data } = await api.post(`${API_PREFIX}/courses/${courseId}/lectures/${lectureId}/watch`, payload);
   return data;
 };
 
 export const createCourse = async (payload) => {
-  const { data } = await api.post('/api/v1/courses', payload);
+  const { data } = await api.post(`${API_PREFIX}/courses`, payload);
   return data?.data;
 };
 
@@ -33,13 +34,13 @@ export const uploadLecture = async (courseId, payload) => {
   formData.append('isPreview', String(Boolean(payload.isPreview)));
   formData.append('video', payload.video);
 
-  const { data } = await api.post(`/api/v1/courses/${courseId}/lectures`, formData, {
+  const { data } = await api.post(`${API_PREFIX}/courses/${courseId}/lectures`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data?.data;
 };
 
 export const getEnrolledStudents = async (courseId, params) => {
-  const { data } = await api.get(`/api/v1/courses/${courseId}/students`, { params });
+  const { data } = await api.get(`${API_PREFIX}/courses/${courseId}/students`, { params });
   return data;
 };
