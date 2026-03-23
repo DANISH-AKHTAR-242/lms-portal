@@ -3,8 +3,8 @@
 ## Modular Monolith Structure
 
 ```text
-index.js
-config/
+apps/api/index.js
+apps/api/config/
   cache.js
   circuit-breaker.js
   event-bus.js
@@ -15,31 +15,31 @@ config/
   retry.js
   sentry.js
   token-store.js
-controllers/
+apps/api/controllers/
   user.controller.js        # Auth + Users module orchestration
   course.controller.js      # Courses + Analytics emit
   razorpay.controller.js    # Payments orchestration
-models/
+apps/api/models/
   user.model.js
   course.model.js
   lecture.model.js
   coursePurchase.model.js
   courseProgress.js
-services/
+apps/api/services/
   auth-user.service.js      # Users service + profile cache
   course-lecture.service.js # Courses + Media service + cache warming
   payment.service.js        # Payments service (retry/circuit/event)
   progress-analytics.service.js
   analytics.service.js
-workers/
+apps/api/workers/
   domain-events.worker.js
   analytics.worker.js
-routes/
+apps/api/routes/
   user.route.js
   course.route.js
   payment.route.js
   security.route.js
-middleware/
+apps/api/middleware/
   auth.middleware.js
   csrf.middleware.js
   idempotency.middleware.js
@@ -125,8 +125,8 @@ Query optimizations:
 ## DevOps
 
 - Multi-stage production Dockerfile.
-- `docker-compose.yml` for app + mongo + redis + nginx.
-- Nginx load-balancer config at `ops/nginx/nginx.conf`.
+- `infra/docker/docker-compose.yml` for app + mongo + redis + nginx.
+- Nginx load-balancer config at `infra/nginx/nginx.conf`.
 - GitHub Actions pipeline at `.github/workflows/ci-cd.yml` (lint/test/build/deploy placeholder).
 - Deployment strategy recommendation: rolling or blue-green in deploy stage.
 
