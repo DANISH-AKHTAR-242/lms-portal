@@ -27,8 +27,9 @@ import { startEventWorker } from "./config/event-bus.js";
 import startAnalyticsWorker from "./workers/analytics.worker.js";
 import { warmCourseCatalogCache } from "./services/course-lecture.service.js";
 import { domainEventHandlers } from "./config/event-handlers.js";
+import { API_PREFIX } from "@lms/shared/constants/index";
 
-dotenv.config();
+dotenv.config({ path: process.env.ENV_FILE || "../../.env" });
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -36,10 +37,10 @@ initSentry();
 
 const csrfExemptPaths = new Set([
   "/health",
-  "/api/v1/security/csrf-token",
-  "/api/v1/user/signup",
-  "/api/v1/user/signin",
-  "/api/v1/user/signout",
+  `${API_PREFIX}/security/csrf-token`,
+  `${API_PREFIX}/user/signup`,
+  `${API_PREFIX}/user/signin`,
+  `${API_PREFIX}/user/signout`,
 ]);
 
 //global rate limiting
@@ -71,7 +72,7 @@ const perUserLimiter = rateLimit({
 const gracefulDegradationMiddleware = async (req, res, next) => {
   try {
     const { overloaded } = await monitorQueueDepth();
-    if (overloaded && req.path.startsWith("/api/v1/courses/catalog")) {
+    if (overloaded && req.path.startsWith(`${API_PREFIX}/courses/catalog`)) {
       return res.status(503).json({
         status: "degraded",
         message:
@@ -98,9 +99,14 @@ app.use(tracingMiddleware);
 app.use(requestLoggingMiddleware);
 
 //cors configuration
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
     allowedHeaders: [
@@ -146,12 +152,12 @@ app.get("/metrics/prometheus", async (req, res, next) => {
     next(error);
   }
 });
-app.use("/api/v1/security", securityRoute);
-app.use("/api/v1/user/refresh", perUserLimiter);
-app.use("/api/v1/courses/catalog", gracefulDegradationMiddleware);
-app.use("/api/v1/user", userRoute);
-app.use("/api/v1/courses", courseRoute);
-app.use("/api/v1/payment", paymentRoute);
+app.use(`${API_PREFIX}/security`, securityRoute);
+app.use(`${API_PREFIX}/user/refresh`, perUserLimiter);
+app.use(`${API_PREFIX}/courses/catalog`, gracefulDegradationMiddleware);
+app.use(`${API_PREFIX}/user`, userRoute);
+app.use(`${API_PREFIX}/courses`, courseRoute);
+app.use(`${API_PREFIX}/payment`, paymentRoute);
 
 //404 handler
 app.use((req, res) => {

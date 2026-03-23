@@ -1,3 +1,4 @@
+import { API_PREFIX } from '@lms/shared/constants/index';
 import api from './http';
 
 const idempotencyHeaders = () => ({
@@ -7,7 +8,7 @@ const idempotencyHeaders = () => ({
 
 export const createOrder = async (courseId) => {
   const { data } = await api.post(
-    '/api/v1/payment/order',
+    `${API_PREFIX}/payment/order`,
     { courseId },
     { headers: idempotencyHeaders() },
   );
@@ -15,7 +16,7 @@ export const createOrder = async (courseId) => {
 };
 
 export const verifyPayment = async (payload) => {
-  const { data } = await api.post('/api/v1/payment/verify', payload, {
+  const { data } = await api.post(`${API_PREFIX}/payment/verify`, payload, {
     headers: idempotencyHeaders(),
   });
   return data;
@@ -23,7 +24,7 @@ export const verifyPayment = async (payload) => {
 
 export const markPaymentFailed = async (paymentId) => {
   const { data } = await api.post(
-    '/api/v1/payment/failed',
+    `${API_PREFIX}/payment/failed`,
     { paymentId },
     { headers: idempotencyHeaders() },
   );

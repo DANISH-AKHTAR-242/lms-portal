@@ -1,0 +1,12 @@
+{
+  "name": "@lms/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./constants/index": "./constants/index.js",
+    "./types/user": "./types/user.d.ts",
+    "./types/course": "./types/course.d.ts",
+    "./api-types/common": "./api-types/common.d.ts"
+  }
+}
