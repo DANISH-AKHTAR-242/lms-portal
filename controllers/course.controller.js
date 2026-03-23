@@ -7,9 +7,12 @@ import { deleteVideoFromCloudinary } from "../utils/cloudinary.js";
 import {
   createLectureAsset,
   getCourseCatalog,
+  invalidateCourseCatalogCache,
   registerCreatedCourse,
 } from "../services/course-lecture.service.js";
 import { trackLectureProgress } from "../services/progress-analytics.service.js";
+import { DOMAIN_EVENTS, eventBus } from "../config/event-bus.js";
+import { trackAnalyticsEvent } from "../services/analytics.service.js";
 
 export const createCourse = catchAsync(async (req, res) => {
   const { title, subtitle, description, category, level, price, thumbnail } =
@@ -26,7 +29,11 @@ export const createCourse = catchAsync(async (req, res) => {
     instructor: req.id,
   });
 
-  await registerCreatedCourse({ userId: req.id, courseId: course._id });
+  await registerCreatedCourse({
+    userId: req.id,
+    courseId: course._id,
+    traceId: req.traceId,
+  });
 
   res.status(201).json({ success: true, data: course });
 });
@@ -45,6 +52,7 @@ export const updateCourse = catchAsync(async (req, res) => {
 
   Object.assign(course, req.body);
   await course.save();
+  await invalidateCourseCatalogCache();
 
   res.status(200).json({ success: true, data: course });
 });
@@ -78,6 +86,7 @@ export const deleteCourse = catchAsync(async (req, res) => {
   );
 
   await Course.findByIdAndDelete(courseId);
+  await invalidateCourseCatalogCache();
 
   res.status(200).json({ success: true, message: "Course deleted successfully" });
 });
@@ -110,6 +119,12 @@ export const uploadLecture = catchAsync(async (req, res) => {
 
 export const listCourseCatalog = catchAsync(async (req, res) => {
   const courses = await getCourseCatalog();
+  await trackAnalyticsEvent({
+    eventId: `course-catalog-viewed-${req.traceId}`,
+    eventType: DOMAIN_EVENTS.COURSE_VIEWED,
+    userId: req.id ? String(req.id) : undefined,
+    traceId: req.traceId,
+  });
   res.status(200).json({ success: true, data: courses });
 });
 
@@ -163,21 +178,37 @@ export const enrollInCourse = catchAsync(async (req, res) => {
     { $setOnInsert: { user: req.id, course: courseId } },
     { upsert: true, new: true }
   );
+  await eventBus.emit(DOMAIN_EVENTS.USER_ENROLLED, {
+    eventId: `user-enrolled-${req.id}-${courseId}`,
+    userId: String(req.id),
+    courseId: String(courseId),
+    traceId: req.traceId,
+  });
 
   res.status(200).json({ success: true, message: "Enrolled in course successfully" });
 });
 
 export const viewEnrolledCourses = catchAsync(async (req, res) => {
-  const user = await User.findById(req.id).populate({
-    path: "enrolledCourse.course",
-    select: "title subtitle thumbnail category level price instructor totalLectures",
-  });
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 20);
+  const skip = (page - 1) * limit;
+  const user = await User.findById(req.id)
+    .populate({
+      path: "enrolledCourse.course",
+      select: "title subtitle thumbnail category level price instructor totalLectures",
+      options: { sort: { createdAt: -1 }, skip, limit },
+    })
+    .lean();
 
   if (!user) {
     throw new ApiError("User not found", 404);
   }
 
-  res.status(200).json({ success: true, data: user.enrolledCourse });
+  res.status(200).json({
+    success: true,
+    data: user.enrolledCourse,
+    pagination: { page, limit, returned: user.enrolledCourse.length },
+  });
 });
 
 export const watchLecture = catchAsync(async (req, res) => {
@@ -204,6 +235,7 @@ export const watchLecture = catchAsync(async (req, res) => {
     lectureId,
     watchTime,
     isCompleted,
+    traceId: req.traceId,
   });
 
   res.status(200).json({

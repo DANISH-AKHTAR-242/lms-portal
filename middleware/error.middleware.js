@@ -19,3 +19,6 @@ export const catchAsync = (fn) => {
 export const jwtError = (message = "Invalid token. Please log in again") => {
   return new ApiError(message, 401);
 };
+
+export const internalError = (message = "Internal server error") =>
+  new ApiError(message, 500);

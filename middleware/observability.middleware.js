@@ -22,6 +22,7 @@ export const requestLoggingMiddleware = (req, res, next) => {
       path: req.originalUrl,
       statusCode: res.statusCode,
       durationMs,
+      userId: req.id ? String(req.id) : undefined,
     };
 
     recordHttpMetric(req.method, req.route?.path || req.path || req.originalUrl, res.statusCode, durationMs);

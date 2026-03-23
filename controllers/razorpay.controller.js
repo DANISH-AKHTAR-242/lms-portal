@@ -9,7 +9,11 @@ export const createRazorpayOrder = catchAsync(async (req, res) => {
   const userId = req.id;
   const { courseId } = req.body;
 
-  const orderPayload = await createOrderForCourse({ userId, courseId });
+  const orderPayload = await createOrderForCourse({
+    userId,
+    courseId,
+    traceId: req.traceId,
+  });
 
   res.status(201).json({
     success: true,
@@ -25,6 +29,7 @@ export const verifyPayment = catchAsync(async (req, res) => {
     razorpay_order_id,
     razorpay_payment_id,
     razorpay_signature,
+    traceId: req.traceId,
   });
 
   res.status(200).json({

@@ -1,5 +1,6 @@
 import { ApiError, catchAsync } from "../middleware/error.middleware.js";
 import jwt from "jsonwebtoken";
+import { DOMAIN_EVENTS, eventBus } from "../config/event-bus.js";
 import { User } from "../models/user.model.js";
 import { deleteMediaFromCloudinary, uploadMedia } from "../utils/cloudinary.js";
 import {
@@ -8,6 +9,7 @@ import {
   getUserProfile,
 } from "../services/auth-user.service.js";
 import { generateToken } from "../utils/generateToken.js";
+import { revokeRefreshSession, validateRefreshSession } from "../config/token-store.js";
 
 export const createUserAccount = catchAsync(async (req, res) => {
   const { name, email, password, role = "student" } = req.body;
@@ -30,7 +32,14 @@ export const createUserAccount = catchAsync(async (req, res) => {
     email: user.email,
     role: user.role,
   });
-  generateToken(res, user, "Account created successfully");
+  await eventBus.emit(DOMAIN_EVENTS.USER_REGISTERED, {
+    eventId: `user-registered-${user._id}`,
+    userId: String(user._id),
+    email: user.email,
+    role: user.role,
+    traceId: req.traceId,
+  });
+  await generateToken(res, user, "Account created successfully");
 });
 
 export const authenticateUser = catchAsync(async (req, res) => {
@@ -50,11 +59,12 @@ export const authenticateUser = catchAsync(async (req, res) => {
     email: user.email,
     role: user.role,
   });
-  generateToken(res, user, `Welcome back ${user.name}`);
+  await generateToken(res, user, `Welcome back ${user.name}`);
 });
 
 export const signOutUser = catchAsync(async (req, res) => {
   const token = req.cookies?.token;
+  const refreshToken = req.cookies?.refreshToken;
   if (token && process.env.SECRET_KEY) {
     try {
       const decoded = jwt.verify(token, process.env.SECRET_KEY);
@@ -65,11 +75,59 @@ export const signOutUser = catchAsync(async (req, res) => {
       // no-op for invalid token on signout
     }
   }
+  if (refreshToken && process.env.SECRET_KEY) {
+    try {
+      const decoded = jwt.verify(refreshToken, process.env.SECRET_KEY);
+      if (decoded?.userId && decoded?.jti) {
+        await revokeRefreshSession({
+          userId: String(decoded.userId),
+          jti: decoded.jti,
+        });
+      }
+    } catch (_) {
+      // no-op for invalid token on signout
+    }
+  }
   res.cookie("token", "", { maxAge: 0 });
+  res.cookie("refreshToken", "", { maxAge: 0, path: "/api/v1/user/refresh" });
   res.status(200).json({
     success: true,
     message: "Signed out successfully",
   });
+});
+
+export const refreshAuthToken = catchAsync(async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken;
+
+  if (!refreshToken) {
+    throw new ApiError("Refresh token is required", 401);
+  }
+
+  const decoded = jwt.verify(refreshToken, process.env.SECRET_KEY);
+  if (!decoded?.userId || decoded?.type !== "refresh" || !decoded?.jti) {
+    throw new ApiError("Invalid refresh token", 401);
+  }
+
+  const isValidSession = await validateRefreshSession({
+    userId: String(decoded.userId),
+    token: refreshToken,
+    jti: decoded.jti,
+  });
+  if (!isValidSession) {
+    throw new ApiError("Refresh session revoked", 401);
+  }
+
+  await revokeRefreshSession({
+    userId: String(decoded.userId),
+    jti: decoded.jti,
+  });
+
+  const user = await User.findById(decoded.userId);
+  if (!user) {
+    throw new ApiError("User not found", 404);
+  }
+
+  await generateToken(res, user, "Token refreshed successfully");
 });
 
 export const getCurrentUserProfile = catchAsync(async (req, res) => {
@@ -82,8 +140,9 @@ export const getCurrentUserProfile = catchAsync(async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      ...user.toJSON(),
-      totalEnrolledCourses: user.totalEnrolledCourses,
+      ...(typeof user.toJSON === "function" ? user.toJSON() : user),
+      totalEnrolledCourses:
+        user.totalEnrolledCourses || user.enrolledCourse?.length || 0,
     },
   });
 });

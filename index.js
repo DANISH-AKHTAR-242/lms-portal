@@ -9,7 +9,7 @@ import hpp from "hpp";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { connectRedis } from "./config/redis.js";
-import { getMetricsSnapshot } from "./config/metrics.js";
+import { getMetricsSnapshot, getPrometheusMetrics } from "./config/metrics.js";
 import {
   requestLoggingMiddleware,
   tracingMiddleware,
@@ -21,11 +21,17 @@ import courseRoute from "./routes/course.route.js";
 import paymentRoute from "./routes/payment.route.js";
 import securityRoute from "./routes/security.route.js";
 import { csrfProtection } from "./middleware/csrf.middleware.js";
+import { initSentry, captureException } from "./config/sentry.js";
+import { startEventWorker } from "./config/event-bus.js";
+import startAnalyticsWorker from "./workers/analytics.worker.js";
+import { warmCourseCatalogCache } from "./services/course-lecture.service.js";
+import { domainEventHandlers } from "./config/event-handlers.js";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
+initSentry();
 
 const csrfExemptPaths = new Set([
   "/health",
@@ -52,6 +58,13 @@ const limiter = rateLimit({
         }),
       }
     : {}),
+});
+const perUserLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.id || req.ip),
 });
 
 //security middleware
@@ -108,7 +121,16 @@ app.get("/metrics", (req, res) => {
     data: getMetricsSnapshot(),
   });
 });
+app.get("/metrics/prometheus", async (req, res, next) => {
+  try {
+    res.set("Content-Type", "text/plain; version=0.0.4");
+    res.status(200).send(await getPrometheusMetrics());
+  } catch (error) {
+    next(error);
+  }
+});
 app.use("/api/v1/security", securityRoute);
+app.use("/api/v1/user/refresh", perUserLimiter);
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/courses", courseRoute);
 app.use("/api/v1/payment", paymentRoute);
@@ -130,6 +152,8 @@ app.use((err, req, res, next) => {
     });
   }
 
+  captureException(err, { traceId: req.traceId, path: req.originalUrl });
+
   return res.status(err.statusCode || 500).json({
     status: err.status || "error",
     message: err.message || "Internal server error",
@@ -140,6 +164,9 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   await connectDB();
   await connectRedis();
+  startEventWorker({ handlers: domainEventHandlers });
+  startAnalyticsWorker();
+  await warmCourseCatalogCache();
   app.listen(port, () => {
     console.log(`Server is running at ${port} in ${process.env.NODE_ENV}`);
   });

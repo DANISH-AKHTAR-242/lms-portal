@@ -29,6 +29,7 @@ const createQueue = (name) => {
 export const paymentReconciliationQueue = createQueue("payment-reconciliation");
 export const mediaProcessingQueue = createQueue("media-processing");
 export const notificationQueue = createQueue("notifications");
+export const analyticsQueue = createQueue("analytics-events");
 
 export const enqueuePaymentReconciliation = async (data) =>
   paymentReconciliationQueue.add("reconcile-payment", data, {
@@ -49,4 +50,11 @@ export const enqueueNotification = async (data) =>
     attempts: 3,
     backoff: { type: "exponential", delay: 1000 },
     removeOnComplete: 100,
+  });
+
+export const enqueueAnalyticsEvent = async (data) =>
+  analyticsQueue.add("analytics-event", data, {
+    attempts: 5,
+    backoff: { type: "exponential", delay: 1000 },
+    removeOnComplete: 1000,
   });

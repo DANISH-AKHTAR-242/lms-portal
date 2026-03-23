@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
+import { internalError } from "../middleware/error.middleware.js";
 
 dotenv.config({});
 
@@ -17,8 +18,7 @@ export const uploadMedia = async (file) => {
 
     return uploadMedia;
   } catch (error) {
-    console.log("Error in uploading the media cloudinary");
-    console.log(error);
+    throw internalError("Failed to upload media");
   }
 };
 
@@ -27,9 +27,7 @@ export const deleteMediaFromCloudinary = async (publicId) => {
     const deleteMedia = await cloudinary.uploader.destroy(publicId);
     return deleteMedia;
   } catch (error) {
-    console.log("Error in deleting the file from cloudinary");
-
-    console.log(error);
+    throw internalError("Failed to delete media");
   }
 };
 
@@ -40,8 +38,6 @@ export const deleteVideoFromCloudinary = async (publicId) => {
     });
     return deleteVideo;
   } catch (error) {
-    console.log("Error in deleting the file from cloudinary");
-
-    console.log(error);
+    throw internalError("Failed to delete video");
   }
 };

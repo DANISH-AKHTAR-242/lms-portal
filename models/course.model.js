@@ -87,4 +87,9 @@ courseSchema.pre("save", function (next) {
   next();
 });
 
+courseSchema.index({ instructor: 1, createdAt: -1 });
+courseSchema.index({ isPublished: 1, createdAt: -1 });
+courseSchema.index({ category: 1, level: 1 });
+courseSchema.index({ enrolledStudent: 1 });
+
 export const Course = mongoose.model("Course", courseSchema);

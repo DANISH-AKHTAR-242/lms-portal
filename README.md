@@ -52,6 +52,7 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - `POST /api/v1/user/signup`
 - `POST /api/v1/user/signin`
 - `POST /api/v1/user/signout`
+- `POST /api/v1/user/refresh`
 - `GET /api/v1/user/profile`
 - `PATCH /api/v1/user/profile`
 
@@ -76,6 +77,24 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 
 ### Observability
 - `GET /metrics` (basic structured metrics snapshot)
+- `GET /metrics/prometheus` (Prometheus scrape format)
+
+## Production Architecture Additions
+- Modular monolith module boundaries across Auth, Users, Courses, Payments, Media, Notifications, Analytics.
+- Internal event bus with BullMQ domain events and DLQ support.
+- Retry + circuit breaker around external calls (Razorpay, media upload).
+- Redis cache-aside and startup cache warming.
+- Refresh token rotation + revocation with Redis-backed token store.
+- Prometheus + Pino + trace propagation (`X-Trace-Id`).
+
+See detailed implementation and migration path in:
+- `docs/architecture.md`
+
+## Deployment
+- Docker: `Dockerfile`
+- Local stack: `docker-compose.yml`
+- Nginx LB config: `ops/nginx/nginx.conf`
+- PM2 clustering/workers: `ecosystem.config.cjs`
 
 ## Security Notes
 - JWT cookie is configured as `httpOnly` and `secure` in production.

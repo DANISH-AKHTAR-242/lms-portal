@@ -56,6 +56,8 @@ const courseProgressSchema = new mongoose.Schema(
 );
 
 courseProgressSchema.index({ user: 1, course: 1 }, { unique: true });
+courseProgressSchema.index({ course: 1, isCompleted: 1 });
+courseProgressSchema.index({ user: 1, lastAccessed: -1 });
 
 //update last accessed
 courseProgressSchema.methods.updateLastAccessed = function () {

@@ -3,6 +3,7 @@ import {
   authenticateUser,
   createUserAccount,
   getCurrentUserProfile,
+  refreshAuthToken,
   signOutUser,
   updateUser,
 } from "../controllers/user.controller.js";
@@ -24,6 +25,7 @@ router.post(
   authenticateUser
 );
 router.post("/signout", signOutUser);
+router.post("/refresh", refreshAuthToken);
 
 //profile routes
 router.get("/profile", isAuthenticated, getCurrentUserProfile);

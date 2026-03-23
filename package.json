@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.872.0",
+    "@sentry/node": "^10.45.0",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.71.0",
     "cloudinary": "^2.8.0",
@@ -46,9 +47,12 @@
     "mongoose": "^8.19.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "pino": "^10.3.1",
+    "prom-client": "^15.1.3",
     "rate-limit-redis": "^4.3.1",
     "razorpay": "^2.9.6",
     "redis": "^5.11.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
   }
 }
