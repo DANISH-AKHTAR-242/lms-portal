@@ -73,7 +73,7 @@ const userSchema = new mongoose.Schema(
 
 //hashing the password
 userSchema.pre("save", async function (next) {
-  if (!isModified("password")) {
+  if (!this.isModified("password")) {
     return next();
   }
   this.password = await bcrypt.hash(this.password, 12);
@@ -81,11 +81,11 @@ userSchema.pre("save", async function (next) {
 });
 
 //compare password
-userSchema.method.comparePassword = async function (enterPassword) {
+userSchema.methods.comparePassword = async function (enterPassword) {
   return await bcrypt.compare(enterPassword, this.password);
 };
 
-userSchema.method.getResetPasswordToken = function () {
+userSchema.methods.getResetPasswordToken = function () {
   const restToken = crypto.randomBytes(20).toString("hex");
   this.resetPasswordToken = crypto
     .createHash("sha256")
@@ -96,9 +96,9 @@ userSchema.method.getResetPasswordToken = function () {
   return restToken;
 };
 
-userSchema.method.updateLastActive = function () {
+userSchema.methods.updateLastActive = function () {
   this.lastActive = Date.now();
-  return this.lastActive({ validateBeforeSave: false });
+  return this.save({ validateBeforeSave: false });
 };
 
 //virtual feild  for total enrolled courses

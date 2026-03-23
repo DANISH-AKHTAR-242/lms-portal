@@ -25,7 +25,7 @@ const courseSchema = new mongoose.Schema(
     level: {
       type: String,
       enum: {
-        value: ["beginner", "intermediate", "advanced"],
+        values: ["beginner", "intermediate", "advanced"],
         message: "Please select a valid course level",
       },
       default: "beginner",
@@ -82,7 +82,7 @@ courseSchema.virtual("averageRating").get(function () {
 
 courseSchema.pre("save", function (next) {
   if (this.lectures) {
-    this.totalLectures = this.lectures.lenght;
+    this.totalLectures = this.lectures.length;
   }
   next();
 });

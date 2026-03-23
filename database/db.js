@@ -8,22 +8,21 @@ class DatabaseConnection {
     this.retryCount = 0;
     this.isConnecteed = false;
 
-    //configure mongoose
     mongoose.set("strictQuery", true);
 
     mongoose.connection.on("connected", () => {
       console.log("MongoDB Connected Successfully");
       this.isConnecteed = true;
     });
+
     mongoose.connection.on("error", () => {
       console.log("MongoDB Connection Error ");
       this.isConnecteed = false;
     });
+
     mongoose.connection.on("disconnected", () => {
       console.log("MongoDB Disconnected");
       this.isConnecteed = false;
-
-      //TODO: attempt a reconnection
       this.handleDisconnection();
     });
 
@@ -37,12 +36,10 @@ class DatabaseConnection {
       }
 
       const connectionOptions = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 4500,
-        family: 4, // use IPv4
+        family: 4,
       };
 
       if (process.env.NODE_ENV === "development") {
@@ -50,7 +47,7 @@ class DatabaseConnection {
       }
 
       await mongoose.connect(process.env.MONGODB_URI, connectionOptions);
-      this.retryCount = 0; //reset retry count on success
+      this.retryCount = 0;
     } catch (error) {
       console.error(error.message);
       await this.handleConnectionError();
@@ -64,18 +61,15 @@ class DatabaseConnection {
         `Retrying connection... Atempt ${this.retryCount} of ${MAX_RETRIES}`
       );
 
-      await new Promise((resolve) =>
-        setTimeout(() => {
-          resolve;
-        }, RETRY_INTERVAL)
-      );
+      await new Promise((resolve) => {
+        setTimeout(resolve, RETRY_INTERVAL);
+      });
+
       return this.connect();
-    } else {
-      console.error(
-        `Failed to connect to MongoDB after ${MAX_RETRIES} attempts`
-      );
-      process.exit(1);
     }
+
+    console.error(`Failed to connect to MongoDB after ${MAX_RETRIES} attempts`);
+    process.exit(1);
   }
 
   async handleDisconnection() {
@@ -106,9 +100,7 @@ class DatabaseConnection {
   }
 }
 
-// create a singleton instance
 const dbConnection = new DatabaseConnection();
 
 export default dbConnection.connect.bind(dbConnection);
-
 export const getDBStatus = dbConnection.getConnectionStatus.bind(dbConnection);

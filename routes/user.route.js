@@ -8,13 +8,21 @@ import {
 } from "../controllers/user.controller.js";
 import { isAuthenticated } from "../middleware/auth.middleware.js";
 import uploads from "../utils/multer.js";
-import { validateSignup } from "../middleware/validation.middleware.js";
+import { validateSignup, validate } from "../middleware/validation.middleware.js";
+import { body } from "express-validator";
 
 const router = express.Router();
 
 //auth routes
 router.post("/signup", validateSignup, createUserAccount);
-router.post("/signin", authenticateUser);
+router.post(
+  "/signin",
+  validate([
+    body("email").isEmail().withMessage("Please provide a valid email"),
+    body("password").notEmpty().withMessage("Password is required"),
+  ]),
+  authenticateUser
+);
 router.post("/signout", signOutUser);
 
 //profile routes

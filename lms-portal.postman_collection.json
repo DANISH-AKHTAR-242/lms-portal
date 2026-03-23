@@ -1,0 +1,122 @@
+{
+  "info": {
+    "name": "LMS Portal API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Signup",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Student One\",\n  \"email\": \"student@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"student\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/user/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "user", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Signin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"student@example.com\",\n  \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/user/signin",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "user", "signin"]
+        }
+      }
+    },
+    {
+      "name": "Create Course",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Node.js Masterclass\",\n  \"subtitle\": \"Build scalable APIs\",\n  \"description\": \"Complete Node.js backend course\",\n  \"category\": \"Programming\",\n  \"level\": \"beginner\",\n  \"price\": 1999,\n  \"thumbnail\": \"https://example.com/thumb.jpg\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/courses",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "courses"]
+        }
+      }
+    },
+    {
+      "name": "Enroll Course",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"courseId\": \"{{courseId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/courses/enroll",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "courses", "enroll"]
+        }
+      }
+    },
+    {
+      "name": "Create Razorpay Order",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"courseId\": \"{{courseId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/payment/order",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "payment", "order"]
+        }
+      }
+    },
+    {
+      "name": "Verify Razorpay Payment",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"razorpay_order_id\": \"{{razorpayOrderId}}\",\n  \"razorpay_payment_id\": \"{{razorpayPaymentId}}\",\n  \"razorpay_signature\": \"{{razorpaySignature}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/payment/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "payment", "verify"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "courseId", "value": "" },
+    { "key": "razorpayOrderId", "value": "" },
+    { "key": "razorpayPaymentId", "value": "" },
+    { "key": "razorpaySignature", "value": "" }
+  ]
+}

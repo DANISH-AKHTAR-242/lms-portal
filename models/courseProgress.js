@@ -36,7 +36,7 @@ const courseProgressSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    completionPersentage: {
+    completionPercentage: {
       type: Number,
       default: 0,
       min: 0,
@@ -55,6 +55,8 @@ const courseProgressSchema = new mongoose.Schema(
   }
 );
 
+courseProgressSchema.index({ user: 1, course: 1 }, { unique: true });
+
 //update last accessed
 courseProgressSchema.methods.updateLastAccessed = function () {
   this.lastAccessed = Date.now();
@@ -67,9 +69,15 @@ courseProgressSchema.pre("save", function (next) {
     const completedLectures = this.lectureProgress.filter(
       (lp) => lp.isCompleted
     ).length;
-    this.completionPersentage = Math.round(
+    this.completionPercentage = Math.round(
       (completedLectures / this.lectureProgress.length) * 100
     );
-    this.isCompleted = this.completionPersentage === 100;
+    this.isCompleted = this.completionPercentage === 100;
+  } else {
+    this.completionPercentage = 0;
+    this.isCompleted = false;
   }
+  next();
 });
+
+export const CourseProgress = mongoose.model("CourseProgress", courseProgressSchema);
