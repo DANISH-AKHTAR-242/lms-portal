@@ -4,9 +4,9 @@ import { useAuthStore } from '../store/authStore';
 import { API_PREFIX } from '@lms/shared/constants/index';
 
 const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
-const apiBaseURL = import.meta.env.VITE_API_URL || '/';
+const apiBaseURL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? '/' : undefined);
 
-if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+if (!apiBaseURL) {
   throw new Error('VITE_API_URL must be defined in production builds');
 }
 
