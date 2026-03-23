@@ -1,45 +1,142 @@
 # LMS Portal Backend
 
-Production-ready LMS backend built with Express and MongoDB, with JWT cookie authentication, course management, media handling, and payment flows.
+Production-ready LMS backend built with Express and MongoDB, including JWT cookie authentication, course management, media handling, payments, observability, and asynchronous workers.
+
+## Table of Contents
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Environment Variables](#environment-variables)
+- [Getting Started](#getting-started)
+- [Run](#run)
+- [Testing](#testing)
+- [API Overview](#api-overview)
+- [Security](#security)
+- [Observability](#observability)
+- [Architecture Notes](#architecture-notes)
+- [Deployment](#deployment)
+- [Useful Files](#useful-files)
 
 ## Features
-- Role-based LMS workflows for students and instructors
+- Role-based LMS workflows for students, instructors, and admins
 - JWT auth with httpOnly cookies and refresh-token flow
-- Razorpay integration for course payments
+- CSRF protection for cookie-authenticated requests
+- Course catalog, enrollment, lecture progress tracking
+- Razorpay integration for order, verification, and failed payment handling
 - Cloudinary + S3-compatible object storage support
-- Redis-backed caching, rate-limit metadata, and token/session support
-- BullMQ workers for async jobs (payments/media/notifications)
+- Redis-backed caching, rate-limiting metadata, and token/session support
+- BullMQ workers for domain events and analytics processing
 - Metrics endpoints (JSON + Prometheus)
-- SWR cache refresh + stampede lock + queue backpressure-aware degradation
+- Cache warming + queue-load-aware graceful degradation on catalog endpoint
 
 ## Tech Stack
-- Node.js + Express (ES Modules)
-- MongoDB + Mongoose
-- Redis
-- BullMQ
-- Razorpay
-- Cloudinary
-- AWS S3 SDK (S3-compatible object storage)
-- Jest + Supertest
+- **Runtime/API:** Node.js, Express (ES Modules)
+- **Database:** MongoDB, Mongoose
+- **Cache/Queues:** Redis, BullMQ, IORedis
+- **Payments:** Razorpay
+- **Media:** Cloudinary, AWS S3 SDK (S3-compatible)
+- **Security:** Helmet, HPP, express-mongo-sanitize, csurf, express-rate-limit
+- **Validation:** express-validator, zod
+- **Observability:** Pino, Prometheus (`prom-client`), Sentry
+- **Testing:** Jest, Supertest, mongodb-memory-server
+
+## Project Structure
+```text
+config/       App configuration (redis, queues, metrics, sentry, storage, etc.)
+controllers/  Route orchestration and request/response handling
+database/     MongoDB connection setup
+middleware/   Auth, CSRF, validation, idempotency, observability
+models/       Mongoose models
+routes/       Route definitions
+tests/        Jest test suites
+services/     Core business logic
+workers/      Background workers (analytics/events)
+index.js      Main app bootstrap
+```
+
+## Prerequisites
+- Node.js 18+
+- MongoDB (local/remote)
+- Redis (recommended for production-like setup)
+
+## Environment Variables
+Copy `.env.example` to `.env` and update values as needed.
+
+```bash
+cp .env.example .env
+```
+
+### Core
+- `PORT` (default: `5000`)
+- `NODE_ENV` (`development` / `production` / `test`)
+- `CLIENT_URL` (frontend origin for CORS)
+- `MONGODB_URI`
+- `SECRET_KEY` (JWT signing key)
+
+### Mongo Tuning
+- `MONGO_MAX_POOL_SIZE`
+- `MONGO_MIN_POOL_SIZE`
+- `MONGO_READ_PREFERENCE`
+- `MONGO_READ_CONCERN`
+
+### Cloudinary
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+### Razorpay
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+
+### Redis
+- `REDIS_URL`
+- `REDIS_CACHE_URL`
+- `REDIS_QUEUE_URL`
+- `REDIS_RATE_LIMIT_URL`
+- `REDIS_SENTINELS`
+- `REDIS_MASTER_NAME`
+- `REDIS_PASSWORD`
+
+### Queue/Performance Controls
+- `QUEUE_DEPTH_THRESHOLD`
+- `DOMAIN_EVENT_WORKER_CONCURRENCY`
+- `ANALYTICS_WORKER_CONCURRENCY`
+- `ANALYTICS_QUEUE_PARTITION`
+- `PAYMENT_TIMEOUT_MS`
+- `PAYMENT_BULKHEAD_MAX_CONCURRENT`
+- `PAYMENT_BULKHEAD_QUEUE_LIMIT`
+- `ANALYTICS_BATCH_SIZE`
+- `ANALYTICS_BATCH_WINDOW_MS`
+- `ANALYTICS_SNAPSHOT_INTERVAL_MS`
+
+### Object Storage / CDN
+- `OBJECT_STORAGE_BUCKET`
+- `AWS_REGION`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `CDN_BASE_URL`
+
+### Monitoring / Logging
+- `SENTRY_DSN`
+- `SENTRY_TRACES_SAMPLE_RATE`
+- `LOG_LEVEL`
 
 ## Getting Started
-### Prerequisites
-- Node.js 18+
-- MongoDB
-- Redis (recommended for production-like local setup)
-
-### Installation
 1. Install dependencies:
    ```bash
    npm install
    ```
-2. Copy the example environment file:
+2. Configure environment:
    ```bash
    cp .env.example .env
    ```
-3. Configure `.env` values (MongoDB URI, JWT secret, Cloudinary, Razorpay, etc.).
+3. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-### Run
+## Run
 - Development:
   ```bash
   npm run dev
@@ -49,35 +146,35 @@ Production-ready LMS backend built with Express and MongoDB, with JWT cookie aut
   npm start
   ```
 
+Server runs on `http://localhost:5000` by default.
+
 ## Testing
-- Run tests:
-  ```bash
-  npm test
-  ```
-  Integration specs are skipped by default in restricted environments.
-  To run them with in-memory MongoDB:
+Run all tests:
+
+```bash
+npm test
+```
+
+Notes:
+- Uses Jest in-band (`--runInBand`).
+- Integration suites are skipped by default in restricted environments.
+- To run integration tests with in-memory MongoDB:
   ```bash
   RUN_INTEGRATION_TESTS=true npm test
   ```
-  Or provide an existing MongoDB URI:
+- To run integration tests against an existing MongoDB instance:
   ```bash
   TEST_MONGODB_URI=mongodb://127.0.0.1:27017/lms_test npm test
   ```
-  - Uses test DB (in-memory MongoDB or provided URI)
-  - Mocks Razorpay and media upload clients in integration tests
 
-## Useful Files
-- Architecture notes: `docs/architecture.md`
-- Docker image config: `Dockerfile`
-- Local Docker stack: `docker-compose.yml`
-- PM2 process config: `ecosystem.config.cjs`
-- Postman collection: `lms-portal.postman_collection.json`
-
-## Key API Routes
+## API Overview
 ### Health
 - `GET /health`
 
-### Auth
+### Security
+- `GET /api/v1/security/csrf-token`
+
+### Auth & User
 - `POST /api/v1/user/signup`
 - `POST /api/v1/user/signin`
 - `POST /api/v1/user/signout`
@@ -85,49 +182,55 @@ Production-ready LMS backend built with Express and MongoDB, with JWT cookie aut
 - `GET /api/v1/user/profile`
 - `PATCH /api/v1/user/profile`
 
-### Course (Instructor)
+### Courses (Instructor/Admin)
+- `GET /api/v1/courses/catalog`
 - `POST /api/v1/courses`
 - `PATCH /api/v1/courses/:courseId`
 - `DELETE /api/v1/courses/:courseId`
 - `POST /api/v1/courses/:courseId/lectures`
 - `GET /api/v1/courses/:courseId/students`
-- `GET /api/v1/courses/catalog` (cached catalog)
 
-### Course (Student)
+### Courses (Student/Admin)
 - `POST /api/v1/courses/enroll`
 - `GET /api/v1/courses/enrolled`
 - `POST /api/v1/courses/:courseId/lectures/:lectureId/watch`
 - `GET /api/v1/courses/:courseId/progress`
 
-### Payment
-- `POST /api/v1/payment/order` (requires `Idempotency-Key` header)
-- `POST /api/v1/payment/verify` (requires `Idempotency-Key` header)
+### Payments
+(Authenticated + `Idempotency-Key` header required)
+- `POST /api/v1/payment/order`
+- `POST /api/v1/payment/verify`
 - `POST /api/v1/payment/failed`
 
-### Observability
-- `GET /metrics` (basic structured metrics snapshot)
-- `GET /metrics/prometheus` (Prometheus scrape format)
+## Security
+- JWT auth token is set via `httpOnly` cookie.
+- CSRF protection is enabled for cookie-authenticated flows.
+  - Fetch CSRF token from `GET /api/v1/security/csrf-token`
+  - Send token in `X-CSRF-Token` header on protected requests
+- Helmet, HPP, NoSQL sanitize, and rate limiting are enabled globally.
+- `sameSite` cookie mode is `none` in production and `strict` in development.
 
-## Production Architecture
-- Modular monolith module boundaries across Auth, Users, Courses, Payments, Media, Notifications, Analytics.
-- Internal event bus with BullMQ domain events and DLQ support.
-- Retry + circuit breaker around external calls (Razorpay, media upload).
-- Redis cache-aside and startup cache warming.
-- Redis role-separated URLs (`REDIS_CACHE_URL`, `REDIS_QUEUE_URL`, `REDIS_RATE_LIMIT_URL`) with Sentinel-ready config.
-- Refresh token rotation + revocation with Redis-backed token store.
-- Enrollment and lecture progress moved to dedicated collections with pagination-based aggregation reads.
-- Prometheus + Pino + trace propagation (`X-Trace-Id`).
+## Observability
+- `GET /metrics` returns structured JSON metrics snapshot.
+- `GET /metrics/prometheus` returns Prometheus scrape format.
+- Add `X-Trace-Id` to correlate logs and async processing.
+- Sentry integration is available through `SENTRY_DSN`.
+
+## Architecture Notes
+- Modular monolith organized by Auth, Users, Courses, Payments, Media, Notifications, Analytics.
+- Event-driven processing via BullMQ workers and domain events.
+- Redis role separation for cache/queue/rate-limit use cases.
+- Enrollment and lecture progress data are stored in dedicated collections.
+- For a deeper architecture breakdown, see `docs/architecture.md`.
 
 ## Deployment
-- Docker: `Dockerfile`
-- Local stack: `docker-compose.yml`
-- Nginx LB config: `ops/nginx/nginx.conf`
-- PM2 clustering/workers: `ecosystem.config.cjs`
+- Docker image: `Dockerfile`
+- Local stack (app, mongo, redis, nginx): `docker-compose.yml`
+- Nginx load balancer config: `ops/nginx/nginx.conf`
+- PM2 process config: `ecosystem.config.cjs`
 
-## Security Notes
-- JWT cookie is configured as `httpOnly` and `secure` in production.
-- `sameSite` is `none` in production and `strict` in development.
-- Helmet, HPP, Mongo sanitize, and rate limiting are enabled.
-- CSRF protection is enabled for cookie-authenticated requests. Fetch a token from `GET /api/v1/security/csrf-token` and send it via `X-CSRF-Token` for protected routes.
-- In production, CSRF cookie settings require HTTPS (`secure: true` with `sameSite=none`).
-- Add `X-Trace-Id` header to correlate request logs across services.
+## Useful Files
+- `.env.example` — environment variable template
+- `docs/architecture.md` — architecture details and module boundaries
+- `lms-portal.postman_collection.json` — API collection for manual testing
+- `WARP.md` — local development guidance
