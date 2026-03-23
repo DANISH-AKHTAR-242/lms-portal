@@ -106,7 +106,6 @@ userSchema.virtual("totalEnrolledCourses").get(function () {
   return this.enrolledCourse.length;
 });
 
-userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ role: 1, lastActive: -1 });
 userSchema.index({ "enrolledCourse.course": 1 });
 userSchema.index({ createdCourses: 1 });

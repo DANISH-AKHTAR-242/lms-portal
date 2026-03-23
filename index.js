@@ -24,8 +24,8 @@ import { csrfProtection } from "./middleware/csrf.middleware.js";
 import { initSentry, captureException } from "./config/sentry.js";
 import { startEventWorker } from "./config/event-bus.js";
 import startAnalyticsWorker from "./workers/analytics.worker.js";
-import logger from "./config/logger.js";
 import { warmCourseCatalogCache } from "./services/course-lecture.service.js";
+import { domainEventHandlers } from "./config/event-handlers.js";
 
 dotenv.config();
 
@@ -164,45 +164,7 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   await connectDB();
   await connectRedis();
-  startEventWorker({
-    handlers: {
-      USER_REGISTERED: async (payload) =>
-        logger.info("event_user_registered", {
-          traceId: payload.traceId,
-          userId: payload.userId,
-        }),
-      USER_ENROLLED: async (payload) =>
-        logger.info("event_user_enrolled", {
-          traceId: payload.traceId,
-          userId: payload.userId,
-          courseId: payload.courseId,
-        }),
-      PAYMENT_SUCCESS: async (payload) =>
-        logger.info("event_payment_success", {
-          traceId: payload.traceId,
-          orderId: payload.orderId,
-          paymentId: payload.paymentId,
-        }),
-      LECTURE_WATCHED: async (payload) =>
-        logger.info("event_lecture_watched", {
-          traceId: payload.traceId,
-          userId: payload.userId,
-          courseId: payload.courseId,
-          lectureId: payload.lectureId,
-        }),
-      COURSE_CREATED: async (payload) =>
-        logger.info("event_course_created", {
-          traceId: payload.traceId,
-          courseId: payload.courseId,
-          userId: payload.userId,
-        }),
-      COURSE_VIEWED: async (payload) =>
-        logger.info("event_course_viewed", {
-          traceId: payload.traceId,
-          userId: payload.userId,
-        }),
-    },
-  });
+  startEventWorker({ handlers: domainEventHandlers });
   startAnalyticsWorker();
   await warmCourseCatalogCache();
   app.listen(port, () => {

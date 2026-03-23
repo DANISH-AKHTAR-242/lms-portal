@@ -45,6 +45,16 @@ export const processAnalyticsEvent = async (event) => {
   );
 };
 
+export const getAnalyticsEventSchema = () => ({
+  eventId: "string",
+  eventType: "string",
+  userId: "string|null",
+  courseId: "string|null",
+  traceId: "string|null",
+  payload: "object",
+  occurredAt: "iso-date-time",
+});
+
 export const getDailyActiveUsers = async (date = new Date()) => {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);

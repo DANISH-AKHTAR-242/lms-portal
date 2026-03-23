@@ -36,3 +36,7 @@ export const startAnalyticsWorker = () => {
 };
 
 export default startAnalyticsWorker;
+
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
+  startAnalyticsWorker();
+}
