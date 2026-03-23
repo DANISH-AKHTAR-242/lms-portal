@@ -6,12 +6,19 @@ import { User } from "../models/user.model.js";
 import { CourseProgress } from "../models/courseProgress.js";
 import { ApiError, catchAsync } from "../middleware/error.middleware.js";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+const getRazorpayClient = () => {
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    throw new ApiError("Razorpay is not configured", 500);
+  }
+
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+};
 
 export const createRazorpayOrder = catchAsync(async (req, res) => {
+  const razorpay = getRazorpayClient();
   const userId = req.id;
   const { courseId } = req.body;
 
@@ -65,6 +72,10 @@ export const createRazorpayOrder = catchAsync(async (req, res) => {
 });
 
 export const verifyPayment = catchAsync(async (req, res) => {
+  if (!process.env.RAZORPAY_KEY_SECRET) {
+    throw new ApiError("Razorpay is not configured", 500);
+  }
+
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
     req.body;
 

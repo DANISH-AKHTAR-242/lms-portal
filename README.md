@@ -57,3 +57,5 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - JWT cookie is configured as `httpOnly` and `secure` in production.
 - `sameSite` is `none` in production and `strict` in development.
 - Helmet, HPP, Mongo sanitize, and rate limiting are enabled.
+- CSRF protection is enabled for cookie-authenticated requests. Fetch a token from `GET /api/v1/security/csrf-token` and send it via `X-CSRF-Token` for protected routes.
+- In production, CSRF cookie settings require HTTPS (`secure: true` with `sameSite=none`).
