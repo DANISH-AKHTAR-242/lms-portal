@@ -4,9 +4,14 @@ import { useAuthStore } from '../store/authStore';
 import { API_PREFIX } from '@lms/shared/constants/index';
 
 const MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+const apiBaseURL = import.meta.env.VITE_API_URL || '/';
+
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  throw new Error('VITE_API_URL must be defined in production builds');
+}
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/',
+  baseURL: apiBaseURL,
   withCredentials: true,
   timeout: 15000,
 });
@@ -49,7 +54,7 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     try {
-      await api.post(`${API_PREFIX}/user/refresh`, null);
+      await api.post(`${API_PREFIX}/user/refresh`, null, { skipCsrf: true });
       return api(originalRequest);
     } catch (refreshError) {
       useAuthStore.getState().clearSession();

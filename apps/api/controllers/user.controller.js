@@ -89,7 +89,7 @@ export const signOutUser = catchAsync(async (req, res) => {
     }
   }
   res.cookie("token", "", { maxAge: 0 });
-  res.cookie("refreshToken", "", { maxAge: 0, path: "/api/v1/user/refresh" });
+  res.cookie("refreshToken", "", { maxAge: 0, path: "/" });
   res.status(200).json({
     success: true,
     message: "Signed out successfully",
