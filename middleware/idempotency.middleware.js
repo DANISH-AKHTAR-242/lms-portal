@@ -7,8 +7,10 @@ const TTL_SECONDS = 15 * 60;
 const getBodyHash = (body) =>
   crypto.createHash("sha256").update(JSON.stringify(body || {})).digest("hex");
 
+const getClientFingerprint = (req) => req.ip || req.headers["x-forwarded-for"] || "unknown";
+
 const buildKey = (req, idempotencyKey) =>
-  `idempotency:${req.id || "anonymous"}:${req.method}:${req.originalUrl}:${idempotencyKey}`;
+  `idempotency:${req.id || `anonymous:${getClientFingerprint(req)}`}:${req.method}:${req.path}:${idempotencyKey}`;
 
 const getCachedResponse = async (key) => {
   if (redisClient?.isOpen) {

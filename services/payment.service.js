@@ -2,7 +2,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { enqueueNotification, enqueuePaymentReconciliation } from "../config/queues.js";
 import { Course } from "../models/course.model.js";
-import { CoursePurchase } from "../models/coursePurschase.model.js";
+import { CoursePurchase } from "../models/coursePurchase.model.js";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../middleware/error.middleware.js";
 import { ensureCourseProgress } from "./progress-analytics.service.js";
@@ -35,6 +35,7 @@ export const createOrderForCourse = async ({ userId, courseId, razorpayClient = 
   }
 
   const options = {
+    // Razorpay expects amount in paise (smallest INR currency unit).
     amount: Math.round(course.price * 100),
     currency: "INR",
     receipt: `course_${courseId}`,

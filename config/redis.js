@@ -1,4 +1,5 @@
 import { createClient } from "redis";
+import logger from "./logger.js";
 
 let redisClient;
 let redisEnabled = false;
@@ -20,13 +21,39 @@ if (redisUrl) {
     redisEnabled = false;
   });
 } else {
+  const fallbackWarning = (method) => {
+    logger.warn("redis_fallback_method_invoked", { method });
+  };
+
   redisClient = {
     isOpen: false,
-    connect: async () => {},
-    get: async () => null,
-    set: async () => null,
-    del: async () => 0,
-    ping: async () => "PONG",
+    connect: async () => {
+      fallbackWarning("connect");
+    },
+    get: async () => {
+      fallbackWarning("get");
+      return null;
+    },
+    set: async () => {
+      fallbackWarning("set");
+      return null;
+    },
+    del: async () => {
+      fallbackWarning("del");
+      return 0;
+    },
+    incr: async () => {
+      fallbackWarning("incr");
+      return 0;
+    },
+    sendCommand: async () => {
+      fallbackWarning("sendCommand");
+      return null;
+    },
+    ping: async () => {
+      fallbackWarning("ping");
+      return "PONG";
+    },
   };
 }
 

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Course } from "../../models/course.model.js";
-import { CoursePurchase } from "../../models/coursePurschase.model.js";
+import { CoursePurchase } from "../../models/coursePurchase.model.js";
 import { User } from "../../models/user.model.js";
 import { createOrderForCourse, verifyCoursePayment } from "../../services/payment.service.js";
 import { buildMockRazorpayClient } from "../utils/mock-clients.js";
