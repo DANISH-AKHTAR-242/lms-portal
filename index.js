@@ -8,8 +8,9 @@ import mongooseSanitizer from "express-mongo-sanitize";
 import hpp from "hpp";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import { connectRedis } from "./config/redis.js";
+import { connectRedis, getRateLimitRedisClient, getRedisUrl } from "./config/redis.js";
 import { getMetricsSnapshot, getPrometheusMetrics } from "./config/metrics.js";
+import { monitorQueueDepth } from "./config/queues.js";
 import {
   requestLoggingMiddleware,
   tracingMiddleware,
@@ -48,12 +49,12 @@ const limiter = rateLimit({
   message: "Too many request from this IP, Please try again later",
   standardHeaders: true,
   legacyHeaders: false,
-  ...(process.env.REDIS_URL
+  ...(getRedisUrl("rateLimit")
     ? {
         store: new RedisStore({
           sendCommand: async (...args) => {
-            const { default: redisClient } = await import("./config/redis.js");
-            return redisClient.sendCommand(args);
+            const rateLimitRedisClient = getRateLimitRedisClient();
+            return rateLimitRedisClient.sendCommand(args);
           },
         }),
       }
@@ -66,6 +67,22 @@ const perUserLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => String(req.id || req.ip),
 });
+
+const gracefulDegradationMiddleware = async (req, res, next) => {
+  try {
+    const { overloaded } = await monitorQueueDepth();
+    if (overloaded && req.path.startsWith("/api/v1/courses/catalog")) {
+      return res.status(503).json({
+        status: "degraded",
+        message:
+          "Service temporarily under heavy load. Non-critical requests are throttled.",
+      });
+    }
+  } catch (_) {
+    // continue with best-effort load check
+  }
+  return next();
+};
 
 //security middleware
 app.use(helmet());
@@ -131,6 +148,7 @@ app.get("/metrics/prometheus", async (req, res, next) => {
 });
 app.use("/api/v1/security", securityRoute);
 app.use("/api/v1/user/refresh", perUserLimiter);
+app.use("/api/v1/courses/catalog", gracefulDegradationMiddleware);
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/courses", courseRoute);
 app.use("/api/v1/payment", paymentRoute);

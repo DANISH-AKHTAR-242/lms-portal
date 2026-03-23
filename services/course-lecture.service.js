@@ -1,4 +1,9 @@
-import { CACHE_TTLS, cacheKeys, getOrSetCache, invalidateCacheKeys } from "../config/cache.js";
+import {
+  CACHE_TTLS,
+  cacheKeys,
+  getOrSetCacheWithSWR,
+  invalidateCacheKeys,
+} from "../config/cache.js";
 import { eventBus, DOMAIN_EVENTS } from "../config/event-bus.js";
 import { enqueueMediaProcessing } from "../config/queues.js";
 import { uploadLectureAsset } from "../config/storage.js";
@@ -22,9 +27,10 @@ export const invalidateCourseCatalogCache = async () => {
 };
 
 export const getCourseCatalog = async () => {
-  return getOrSetCache({
+  return getOrSetCacheWithSWR({
     key: cacheKeys.courseCatalog(),
     ttlSeconds: CACHE_TTLS.COURSE_CATALOG,
+    staleTtlSeconds: CACHE_TTLS.COURSE_CATALOG * 2,
     queryFn: async () =>
       Course.find({ isPublished: true })
         .select("title subtitle thumbnail category level price instructor totalLectures")

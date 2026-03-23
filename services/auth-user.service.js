@@ -1,5 +1,7 @@
 import { CACHE_TTLS, cacheKeys, getOrSetCache, invalidateCacheKeys } from "../config/cache.js";
 import { User } from "../models/user.model.js";
+import redisClient from "../config/redis.js";
+import { CourseEnrollment } from "../models/courseEnrollment.model.js";
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -30,9 +32,19 @@ export const getUserProfile = async ({ userId }) =>
   getOrSetCache({
     key: cacheKeys.userProfile(userId),
     ttlSeconds: CACHE_TTLS.USER_PROFILE,
-    queryFn: async () =>
-      User.findById(userId).populate({
-        path: "enrolledCourse.course",
-        select: "title thumbnail description",
-      }),
+    queryFn: async () => {
+      const [user, enrollmentCount] = await Promise.all([
+        User.findById(userId).select("name email role avatar bio createdCourses").lean(),
+        CourseEnrollment.countDocuments({ user: userId }),
+      ]);
+
+      if (!user) {
+        return null;
+      }
+
+      return {
+        ...user,
+        totalEnrolledCoursesCount: enrollmentCount,
+      };
+    },
   });

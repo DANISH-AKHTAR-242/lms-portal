@@ -39,12 +39,6 @@ const courseSchema = new mongoose.Schema(
       type: String,
       required: [true, "Thumbnail is required"],
     },
-    enrolledStudent: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
     lectures: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -90,6 +84,5 @@ courseSchema.pre("save", function (next) {
 courseSchema.index({ instructor: 1, createdAt: -1 });
 courseSchema.index({ isPublished: 1, createdAt: -1 });
 courseSchema.index({ category: 1, level: 1 });
-courseSchema.index({ enrolledStudent: 1 });
 
 export const Course = mongoose.model("Course", courseSchema);

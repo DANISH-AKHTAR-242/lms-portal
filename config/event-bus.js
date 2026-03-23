@@ -1,6 +1,6 @@
 import { Queue, Worker } from "bullmq";
-import IORedis from "ioredis";
 import logger from "./logger.js";
+import { createIORedisClient } from "./redis-connection.js";
 
 export const DOMAIN_EVENTS = {
   USER_REGISTERED: "USER_REGISTERED",
@@ -14,10 +14,9 @@ export const DOMAIN_EVENTS = {
 const EVENT_QUEUE = "domain-events";
 const EVENT_DLX_QUEUE = "domain-events-dlx";
 
-const redisUrl = process.env.REDIS_URL;
-const queueConnection = redisUrl
-  ? new IORedis(redisUrl, { maxRetriesPerRequest: null })
-  : null;
+const queueConnection = createIORedisClient("queue", {
+  maxRetriesPerRequest: null,
+});
 
 const createQueue = (name) => {
   if (!queueConnection) {
@@ -66,6 +65,7 @@ export const startEventWorker = ({
   handlers,
   queueName = EVENT_QUEUE,
   workerName = "domain-event-worker",
+  concurrency = Number(process.env.DOMAIN_EVENT_WORKER_CONCURRENCY || 20),
 } = {}) => {
   if (!queueConnection) {
     logger.warn("event_worker_skipped_no_redis", { workerName, queueName });
@@ -98,7 +98,7 @@ export const startEventWorker = ({
       handledJobs.add(dedupeId);
       await handler(payload, job);
     },
-    { connection: queueConnection, concurrency: 20 }
+    { connection: queueConnection, concurrency }
   );
 
   worker.on("failed", async (job, error) => {

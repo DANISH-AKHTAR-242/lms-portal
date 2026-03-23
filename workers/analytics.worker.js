@@ -1,12 +1,12 @@
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import logger from "../config/logger.js";
-import { processAnalyticsEvent } from "../services/analytics.service.js";
+import {
+  buildDailyAnalyticsSnapshot,
+  processAnalyticsEvent,
+} from "../services/analytics.service.js";
+import { createIORedisClient } from "../config/redis-connection.js";
 
-const redisUrl = process.env.REDIS_URL;
-const connection = redisUrl
-  ? new IORedis(redisUrl, { maxRetriesPerRequest: null })
-  : null;
+const connection = createIORedisClient("queue", { maxRetriesPerRequest: null });
 
 let analyticsWorker = null;
 
@@ -17,11 +17,14 @@ export const startAnalyticsWorker = () => {
   }
 
   analyticsWorker = new Worker(
-    "analytics-events",
+    `analytics-events:${process.env.ANALYTICS_QUEUE_PARTITION || 0}`,
     async (job) => {
       await processAnalyticsEvent(job.data);
     },
-    { connection, concurrency: 20 }
+    {
+      connection,
+      concurrency: Number(process.env.ANALYTICS_WORKER_CONCURRENCY || 20),
+    }
   );
 
   analyticsWorker.on("failed", (job, error) => {
@@ -31,6 +34,12 @@ export const startAnalyticsWorker = () => {
       error: error.message,
     });
   });
+
+  setInterval(() => {
+    buildDailyAnalyticsSnapshot().catch((error) => {
+      logger.error("analytics_daily_snapshot_failed", { error: error.message });
+    });
+  }, Number(process.env.ANALYTICS_SNAPSHOT_INTERVAL_MS || 5 * 60 * 1000));
 
   return analyticsWorker;
 };

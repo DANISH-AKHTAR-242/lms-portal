@@ -1,22 +1,38 @@
 import crypto from "crypto";
 import Razorpay from "razorpay";
-import { CircuitBreaker } from "../config/circuit-breaker.js";
 import { DOMAIN_EVENTS, eventBus } from "../config/event-bus.js";
 import { withRetry } from "../config/retry.js";
 import { enqueueNotification, enqueuePaymentReconciliation } from "../config/queues.js";
+import { buildResilientExecutor } from "../config/resilience.js";
 import { Course } from "../models/course.model.js";
+import { CourseEnrollment } from "../models/courseEnrollment.model.js";
 import { CoursePurchase } from "../models/coursePurchase.model.js";
-import { User } from "../models/user.model.js";
 import { ApiError } from "../middleware/error.middleware.js";
 import { ensureCourseProgress } from "./progress-analytics.service.js";
 import { trackAnalyticsEvent } from "./analytics.service.js";
 
-const paymentCircuitBreaker = new CircuitBreaker({
-  name: "razorpay-orders",
-  failureThreshold: 4,
-  recoveryTimeoutMs: 20_000,
-  fallback: ({ error }) => {
-    throw error || new ApiError("Payment service temporarily unavailable", 503);
+const paymentExecutor = buildResilientExecutor({
+  bulkheadOptions: {
+    name: "payment-razorpay",
+    maxConcurrent: Number(process.env.PAYMENT_BULKHEAD_MAX_CONCURRENT || 50),
+    queueLimit: Number(process.env.PAYMENT_BULKHEAD_QUEUE_LIMIT || 200),
+  },
+  circuitBreakerOptions: {
+    name: "razorpay-orders",
+    failureThreshold: 4,
+    recoveryTimeoutMs: 20_000,
+    fallback: ({ error }) => {
+      throw error || new ApiError("Payment service temporarily unavailable", 503);
+    },
+  },
+  retryOptions: {
+    retries: 3,
+    baseDelayMs: 300,
+    operationName: "razorpay_create_order",
+  },
+  timeoutOptions: {
+    timeoutMs: Number(process.env.PAYMENT_TIMEOUT_MS || 7000),
+    timeoutMessage: "Payment provider timeout",
   },
 });
 
@@ -65,13 +81,7 @@ export const createOrderForCourse = async ({
     },
   };
 
-  const order = await paymentCircuitBreaker.execute(() =>
-    withRetry(() => razorpayClient.orders.create(options), {
-      retries: 3,
-      baseDelayMs: 300,
-      operationName: "razorpay_create_order",
-    })
-  );
+  const order = await paymentExecutor(() => razorpayClient.orders.create(options));
 
   await withRetry(
     () =>
@@ -158,20 +168,17 @@ export const verifyCoursePayment = async ({
   ]);
   await purchase.save();
 
-  await User.findByIdAndUpdate(purchase.user, {
-    $addToSet: {
-      enrolledCourse: {
+  await CourseEnrollment.updateOne(
+    { user: purchase.user, course: purchase.course },
+    {
+      $setOnInsert: {
+        user: purchase.user,
         course: purchase.course,
         enrolledAt: new Date(),
       },
     },
-  });
-
-  await Course.findByIdAndUpdate(purchase.course, {
-    $addToSet: {
-      enrolledStudent: purchase.user,
-    },
-  });
+    { upsert: true }
+  );
 
   await ensureCourseProgress({ userId: purchase.user, courseId: purchase.course });
 

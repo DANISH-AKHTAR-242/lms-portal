@@ -95,14 +95,17 @@ Event pipeline:
 ## Mongo Optimization
 
 Indexes added for:
-- users: role/lastActive, enrolledCourse.course, createdCourses
-- courses: instructor+createdAt, isPublished+createdAt, category+level, enrolledStudent
+- users: role/lastActive, createdCourses
+- courses: instructor+createdAt, isPublished+createdAt, category+level
 - purchases: paymentId(unique), user+status+createdAt, course+status
 - progress: course+isCompleted, user+lastAccessed
+- course_enrollments: user+course(unique), user+enrolledAt, course+enrolledAt
+- lecture_progress: progress+lecture(unique), user+course+lastWatched
 
 Query optimizations:
 - `.lean()` used on catalog and enrolled-courses listing.
-- Pagination added for enrolled-courses endpoint via `page` and `limit`.
+- Pagination added for enrolled-courses, enrolled-students, and course-progress endpoints via `page` and `limit`.
+- Enrollment/progress reads use aggregation pipelines with projection-based lookups.
 
 ## Observability
 
@@ -117,7 +120,7 @@ Query optimizations:
 - Stateless API with cookie JWT + refresh rotation state in Redis.
 - Horizontal scaling friendly (`docker-compose`, nginx upstream).
 - Workers are independently scalable (`workers/*.worker.js`).
-- BullMQ concurrency set on workers (20).
+- BullMQ concurrency is configurable per worker, with partitioned analytics queue and priority jobs.
 
 ## DevOps
 

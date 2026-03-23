@@ -1,5 +1,6 @@
 import redisClient from "./redis.js";
 import logger from "./logger.js";
+import { getOrSetCacheSWR } from "./cache-resilience.js";
 
 export const CACHE_TTLS = {
   COURSE_CATALOG: 300,
@@ -31,6 +32,19 @@ export const getOrSetCache = async ({ key, ttlSeconds, queryFn }) => {
 
   return data;
 };
+
+export const getOrSetCacheWithSWR = async ({
+  key,
+  ttlSeconds,
+  staleTtlSeconds = ttlSeconds * 2,
+  queryFn,
+}) =>
+  getOrSetCacheSWR({
+    key,
+    ttlSeconds,
+    staleTtlSeconds,
+    queryFn,
+  });
 
 export const invalidateCacheKeys = async (keys = []) => {
   if (!redisClient?.isOpen || keys.length === 0) {

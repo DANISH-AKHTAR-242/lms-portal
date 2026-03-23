@@ -1,13 +1,24 @@
 import { createClient } from "redis";
 import logger from "./logger.js";
+import { getRedisUrlByRole } from "./redis-connection.js";
+
+const redisUrls = {
+  cache: getRedisUrlByRole("cache"),
+  queue: getRedisUrlByRole("queue"),
+  rateLimit: getRedisUrlByRole("rateLimit"),
+};
+
+const hasSentinelConfig = () =>
+  Boolean(process.env.REDIS_SENTINELS && process.env.REDIS_MASTER_NAME);
+
+const buildRedisConnectionOptions = (url) => ({ url });
 
 let redisClient;
+let rateLimitRedisClient;
 let redisEnabled = false;
 
-const redisUrl = process.env.REDIS_URL;
-
-if (redisUrl) {
-  redisClient = createClient({ url: redisUrl });
+if (redisUrls.cache) {
+  redisClient = createClient(buildRedisConnectionOptions(redisUrls.cache));
 
   redisClient.on("error", (error) => {
     console.error("Redis client error", error.message);
@@ -20,6 +31,17 @@ if (redisUrl) {
   redisClient.on("end", () => {
     redisEnabled = false;
   });
+
+  if (redisUrls.rateLimit && redisUrls.rateLimit !== redisUrls.cache) {
+    rateLimitRedisClient = createClient(
+      buildRedisConnectionOptions(redisUrls.rateLimit)
+    );
+    rateLimitRedisClient.on("error", (error) => {
+      logger.error("redis_rate_limit_error", { error: error.message });
+    });
+  } else {
+    rateLimitRedisClient = redisClient;
+  }
 } else {
   const fallbackWarning = (method) => {
     logger.warn("redis_fallback_method_invoked", { method });
@@ -55,14 +77,28 @@ if (redisUrl) {
       return "PONG";
     },
   };
+  rateLimitRedisClient = redisClient;
 }
 
 export const connectRedis = async () => {
-  if (redisUrl && !redisClient.isOpen) {
+  if (redisUrls.cache && !redisClient.isOpen) {
     await redisClient.connect();
+  }
+  if (
+    rateLimitRedisClient &&
+    rateLimitRedisClient !== redisClient &&
+    !rateLimitRedisClient.isOpen
+  ) {
+    await rateLimitRedisClient.connect();
   }
 };
 
-export const isRedisEnabled = () => redisEnabled && Boolean(redisUrl);
+export const isRedisEnabled = () => redisEnabled && Boolean(redisUrls.cache);
+export const getRedisUrl = (role = "cache") => redisUrls[role] || redisUrls.cache;
+export const getRateLimitRedisClient = () => rateLimitRedisClient;
+export const getRedisTopology = () => ({
+  mode: hasSentinelConfig() ? "sentinel" : "standalone",
+  urls: redisUrls,
+});
 
 export default redisClient;
