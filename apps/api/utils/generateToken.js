@@ -31,7 +31,7 @@ export const generateToken = async (res, user, message) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/api/v1/user/refresh",
+      path: "/",
     })
     .json({
       success: true,

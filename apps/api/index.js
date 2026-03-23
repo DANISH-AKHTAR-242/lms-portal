@@ -41,6 +41,7 @@ const csrfExemptPaths = new Set([
   `${API_PREFIX}/user/signup`,
   `${API_PREFIX}/user/signin`,
   `${API_PREFIX}/user/signout`,
+  `${API_PREFIX}/user/refresh`,
 ]);
 
 //global rate limiting
