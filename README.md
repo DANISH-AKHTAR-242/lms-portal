@@ -1,38 +1,59 @@
 # LMS Portal Backend
 
-Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudinary media, and Razorpay payments.
+Production-ready LMS backend built with Express and MongoDB, with JWT cookie authentication, course management, media handling, and payment flows.
+
+## Features
+- Role-based LMS workflows for students and instructors
+- JWT auth with httpOnly cookies and refresh-token flow
+- Razorpay integration for course payments
+- Cloudinary + S3-compatible object storage support
+- Redis-backed caching, rate-limit metadata, and token/session support
+- BullMQ workers for async jobs (payments/media/notifications)
+- Metrics endpoints (JSON + Prometheus)
 
 ## Tech Stack
 - Node.js + Express (ES Modules)
 - MongoDB + Mongoose
-- JWT authentication (httpOnly cookies)
-- Razorpay payment integration
-- Cloudinary media storage
-- Redis (rate-limit/session metadata/cache when configured)
-- BullMQ queues for async payment/media/notification jobs
-- Object storage + CDN lecture delivery support (S3-compatible)
+- Redis
+- BullMQ
+- Razorpay
+- Cloudinary
+- AWS S3 SDK (S3-compatible object storage)
+- Jest + Supertest
 
-## Setup
+## Getting Started
+### Prerequisites
+- Node.js 18+
+- MongoDB
+- Redis (recommended for production-like local setup)
+
+### Installation
 1. Install dependencies:
    ```bash
    npm install
    ```
-2. Copy env file:
+2. Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
-3. Update `.env` with your credentials.
-4. Start development server:
-   ```bash
-   npm run dev
-   ```
+3. Configure `.env` values (MongoDB URI, JWT secret, Cloudinary, Razorpay, etc.).
+
+### Run
+- Development:
+  ```bash
+  npm run dev
+  ```
+- Production:
+  ```bash
+  npm start
+  ```
 
 ## Testing
-- Integration tests:
+- Run tests:
   ```bash
   npm test
   ```
-  By default, integration specs are skipped in restricted environments.
+  Integration specs are skipped by default in restricted environments.
   To run them with in-memory MongoDB:
   ```bash
   RUN_INTEGRATION_TESTS=true npm test
@@ -43,6 +64,13 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
   ```
   - Uses test DB (in-memory MongoDB or provided URI)
   - Mocks Razorpay and media upload clients in integration tests
+
+## Useful Files
+- Architecture notes: `docs/architecture.md`
+- Docker image config: `Dockerfile`
+- Local Docker stack: `docker-compose.yml`
+- PM2 process config: `ecosystem.config.cjs`
+- Postman collection: `lms-portal.postman_collection.json`
 
 ## Key API Routes
 ### Health
@@ -79,16 +107,13 @@ Production-oriented LMS backend using Express, MongoDB, JWT cookie auth, Cloudin
 - `GET /metrics` (basic structured metrics snapshot)
 - `GET /metrics/prometheus` (Prometheus scrape format)
 
-## Production Architecture Additions
+## Production Architecture
 - Modular monolith module boundaries across Auth, Users, Courses, Payments, Media, Notifications, Analytics.
 - Internal event bus with BullMQ domain events and DLQ support.
 - Retry + circuit breaker around external calls (Razorpay, media upload).
 - Redis cache-aside and startup cache warming.
 - Refresh token rotation + revocation with Redis-backed token store.
 - Prometheus + Pino + trace propagation (`X-Trace-Id`).
-
-See detailed implementation and migration path in:
-- `docs/architecture.md`
 
 ## Deployment
 - Docker: `Dockerfile`
