@@ -1,6 +1,9 @@
 import { ApiError, catchAsync } from "../middleware/error.middleware.js";
+import mongoose from "mongoose";
 import { Course } from "../models/course.model.js";
 import { CourseProgress } from "../models/courseProgress.js";
+import { CourseEnrollment } from "../models/courseEnrollment.model.js";
+import { LectureProgress } from "../models/lectureProgress.model.js";
 import { Lecture } from "../models/lecture.model.js";
 import { User } from "../models/user.model.js";
 import { deleteVideoFromCloudinary } from "../utils/cloudinary.js";
@@ -10,7 +13,10 @@ import {
   invalidateCourseCatalogCache,
   registerCreatedCourse,
 } from "../services/course-lecture.service.js";
-import { trackLectureProgress } from "../services/progress-analytics.service.js";
+import {
+  findCourseProgress,
+  trackLectureProgress,
+} from "../services/progress-analytics.service.js";
 import { DOMAIN_EVENTS, eventBus } from "../config/event-bus.js";
 import { trackAnalyticsEvent } from "../services/analytics.service.js";
 
@@ -79,11 +85,16 @@ export const deleteCourse = catchAsync(async (req, res) => {
   );
 
   await Lecture.deleteMany({ _id: { $in: course.lectures } });
+  const progressDocs = await CourseProgress.find({ course: course._id })
+    .select("_id")
+    .lean();
   await CourseProgress.deleteMany({ course: course._id });
-  await User.updateMany(
-    { "enrolledCourse.course": course._id },
-    { $pull: { enrolledCourse: { course: course._id } } }
-  );
+  if (progressDocs.length > 0) {
+    await LectureProgress.deleteMany({
+      progress: { $in: progressDocs.map((item) => item._id) },
+    });
+  }
+  await CourseEnrollment.deleteMany({ course: course._id });
 
   await Course.findByIdAndDelete(courseId);
   await invalidateCourseCatalogCache();
@@ -130,23 +141,49 @@ export const listCourseCatalog = catchAsync(async (req, res) => {
 
 export const viewEnrolledStudents = catchAsync(async (req, res) => {
   const { courseId } = req.params;
+  const page = Math.max(1, Number(req.query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+  const skip = (page - 1) * limit;
 
-  const course = await Course.findById(courseId)
-    .populate("enrolledStudent", "name email avatar role")
-    .populate("instructor", "_id");
+  const course = await Course.findById(courseId).select("instructor");
 
   if (!course) {
     throw new ApiError("Course not found", 404);
   }
 
-  if (String(course.instructor._id) !== String(req.id)) {
+  if (String(course.instructor) !== String(req.id)) {
     throw new ApiError("Unauthorized to view enrolled students", 403);
   }
 
+  const [students, totalResult] = await Promise.all([
+    CourseEnrollment.aggregate([
+      { $match: { course: course._id } },
+      { $sort: { enrolledAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1, avatar: 1, role: 1 } }],
+          as: "student",
+        },
+      },
+      { $unwind: "$student" },
+      { $replaceRoot: { newRoot: "$student" } },
+    ]),
+    CourseEnrollment.aggregate([
+      { $match: { course: course._id } },
+      { $count: "total" },
+    ]),
+  ]);
+
   res.status(200).json({
     success: true,
-    data: course.enrolledStudent,
-    total: course.enrolledStudent.length,
+    data: students,
+    total: totalResult?.[0]?.total || 0,
+    pagination: { page, limit, returned: students.length },
   });
 });
 
@@ -158,20 +195,17 @@ export const enrollInCourse = catchAsync(async (req, res) => {
     throw new ApiError("Course not found", 404);
   }
 
-  await User.findByIdAndUpdate(req.id, {
-    $addToSet: {
-      enrolledCourse: {
+  await CourseEnrollment.updateOne(
+    { user: req.id, course: courseId },
+    {
+      $setOnInsert: {
+        user: req.id,
         course: courseId,
         enrolledAt: new Date(),
       },
     },
-  });
-
-  await Course.findByIdAndUpdate(courseId, {
-    $addToSet: {
-      enrolledStudent: req.id,
-    },
-  });
+    { upsert: true }
+  );
 
   await CourseProgress.findOneAndUpdate(
     { user: req.id, course: courseId },
@@ -189,25 +223,56 @@ export const enrollInCourse = catchAsync(async (req, res) => {
 });
 
 export const viewEnrolledCourses = catchAsync(async (req, res) => {
-  const page = Number(req.query.page || 1);
-  const limit = Number(req.query.limit || 20);
+  const page = Math.max(1, Number(req.query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
   const skip = (page - 1) * limit;
-  const user = await User.findById(req.id)
-    .populate({
-      path: "enrolledCourse.course",
-      select: "title subtitle thumbnail category level price instructor totalLectures",
-      options: { sort: { createdAt: -1 }, skip, limit },
-    })
-    .lean();
-
-  if (!user) {
+  const userExists = await User.exists({ _id: req.id });
+  if (!userExists) {
     throw new ApiError("User not found", 404);
   }
 
+  const [courses, totalResult] = await Promise.all([
+    CourseEnrollment.aggregate([
+      { $match: { user: userObjectId } },
+      { $sort: { enrolledAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "courses",
+          localField: "course",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                title: 1,
+                subtitle: 1,
+                thumbnail: 1,
+                category: 1,
+                level: 1,
+                price: 1,
+                instructor: 1,
+                totalLectures: 1,
+              },
+            },
+          ],
+          as: "course",
+        },
+      },
+      { $unwind: { path: "$course", preserveNullAndEmptyArrays: false } },
+      { $project: { course: 1, enrolledAt: 1 } },
+    ]),
+    CourseEnrollment.aggregate([
+      { $match: { user: userObjectId } },
+      { $count: "total" },
+    ]),
+  ]);
+
   res.status(200).json({
     success: true,
-    data: user.enrolledCourse,
-    pagination: { page, limit, returned: user.enrolledCourse.length },
+    data: courses,
+    total: totalResult?.[0]?.total || 0,
+    pagination: { page, limit, returned: courses.length },
   });
 });
 
@@ -222,10 +287,10 @@ export const watchLecture = catchAsync(async (req, res) => {
 
   const isEnrolled = await User.exists({
     _id: req.id,
-    "enrolledCourse.course": courseId,
   });
+  const hasEnrollment = await CourseEnrollment.exists({ user: req.id, course: courseId });
 
-  if (!isEnrolled) {
+  if (!isEnrolled || !hasEnrollment) {
     throw new ApiError("Enroll in the course to access lectures", 403);
   }
 
@@ -253,15 +318,29 @@ export const watchLecture = catchAsync(async (req, res) => {
 
 export const getCourseProgress = catchAsync(async (req, res) => {
   const { courseId } = req.params;
+  const page = Math.max(1, Number(req.query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit || 50)));
 
-  const progress = await CourseProgress.findOne({
-    user: req.id,
-    course: courseId,
-  }).populate("lectureProgress.lecture", "title duration order");
+  const progress = await findCourseProgress({
+    userId: req.id,
+    courseId,
+    page,
+    limit,
+  });
 
   if (!progress) {
     throw new ApiError("No progress found for this course", 404);
   }
 
-  res.status(200).json({ success: true, data: progress });
+  res.status(200).json({
+    success: true,
+    data: progress,
+    pagination: {
+      page,
+      limit,
+      returned: progress.lectureProgress?.length || 0,
+      total: progress.totalLectureProgress || 0,
+    },
+  });
 });
+  const userObjectId = new mongoose.Types.ObjectId(String(req.id));

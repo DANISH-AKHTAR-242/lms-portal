@@ -39,18 +39,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       maxLength: [250, "Bio cannot exceed of 250 charaacters"],
     },
-    enrolledCourse: [
-      {
-        course: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Course",
-        },
-        enrolledAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
     createdCourses: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -103,11 +91,10 @@ userSchema.methods.updateLastActive = function () {
 
 //virtual feild  for total enrolled courses
 userSchema.virtual("totalEnrolledCourses").get(function () {
-  return this.enrolledCourse.length;
+  return this.totalEnrolledCoursesCount || 0;
 });
 
 userSchema.index({ role: 1, lastActive: -1 });
-userSchema.index({ "enrolledCourse.course": 1 });
 userSchema.index({ createdCourses: 1 });
 
 export const User = mongoose.model("User", userSchema);

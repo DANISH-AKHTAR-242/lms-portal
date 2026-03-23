@@ -5,8 +5,8 @@ import { DOMAIN_EVENTS, eventBus } from "../config/event-bus.js";
 import { withRetry } from "../config/retry.js";
 import { enqueueNotification, enqueuePaymentReconciliation } from "../config/queues.js";
 import { Course } from "../models/course.model.js";
+import { CourseEnrollment } from "../models/courseEnrollment.model.js";
 import { CoursePurchase } from "../models/coursePurchase.model.js";
-import { User } from "../models/user.model.js";
 import { ApiError } from "../middleware/error.middleware.js";
 import { ensureCourseProgress } from "./progress-analytics.service.js";
 import { trackAnalyticsEvent } from "./analytics.service.js";
@@ -158,20 +158,17 @@ export const verifyCoursePayment = async ({
   ]);
   await purchase.save();
 
-  await User.findByIdAndUpdate(purchase.user, {
-    $addToSet: {
-      enrolledCourse: {
+  await CourseEnrollment.updateOne(
+    { user: purchase.user, course: purchase.course },
+    {
+      $setOnInsert: {
+        user: purchase.user,
         course: purchase.course,
         enrolledAt: new Date(),
       },
     },
-  });
-
-  await Course.findByIdAndUpdate(purchase.course, {
-    $addToSet: {
-      enrolledStudent: purchase.user,
-    },
-  });
+    { upsert: true }
+  );
 
   await ensureCourseProgress({ userId: purchase.user, courseId: purchase.course });
 

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const MAX_RETRIES = 3;
 const RETRY_INTERVAL = 5000; //5sec
+const DEFAULT_POOL_SIZE = 75;
 
 class DatabaseConnection {
   constructor() {
@@ -36,10 +37,13 @@ class DatabaseConnection {
       }
 
       const connectionOptions = {
-        maxPoolSize: 10,
+        maxPoolSize: Number(process.env.MONGO_MAX_POOL_SIZE || DEFAULT_POOL_SIZE),
+        minPoolSize: Number(process.env.MONGO_MIN_POOL_SIZE || 10),
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 4500,
         family: 4,
+        readPreference: process.env.MONGO_READ_PREFERENCE || "secondaryPreferred",
+        readConcern: { level: process.env.MONGO_READ_CONCERN || "majority" },
       };
 
       if (process.env.NODE_ENV === "development") {
