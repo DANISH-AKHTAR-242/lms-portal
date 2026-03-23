@@ -1,6 +1,12 @@
 import { ApiError, catchAsync } from "../middleware/error.middleware.js";
+import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 import { deleteMediaFromCloudinary, uploadMedia } from "../utils/cloudinary.js";
+import {
+  cacheSessionMetadata,
+  clearSessionMetadata,
+  getUserProfile,
+} from "../services/auth-user.service.js";
 import { generateToken } from "../utils/generateToken.js";
 
 export const createUserAccount = catchAsync(async (req, res) => {
@@ -19,6 +25,11 @@ export const createUserAccount = catchAsync(async (req, res) => {
     role,
   });
   await user.updateLastActive();
+  await cacheSessionMetadata({
+    userId: user._id,
+    email: user.email,
+    role: user.role,
+  });
   generateToken(res, user, "Account created successfully");
 });
 
@@ -34,10 +45,26 @@ export const authenticateUser = catchAsync(async (req, res) => {
   }
 
   await user.updateLastActive();
+  await cacheSessionMetadata({
+    userId: user._id,
+    email: user.email,
+    role: user.role,
+  });
   generateToken(res, user, `Welcome back ${user.name}`);
 });
 
 export const signOutUser = catchAsync(async (req, res) => {
+  const token = req.cookies?.token;
+  if (token && process.env.SECRET_KEY) {
+    try {
+      const decoded = jwt.verify(token, process.env.SECRET_KEY);
+      if (decoded?.userId) {
+        await clearSessionMetadata({ userId: decoded.userId });
+      }
+    } catch (_) {
+      // no-op for invalid token on signout
+    }
+  }
   res.cookie("token", "", { maxAge: 0 });
   res.status(200).json({
     success: true,
@@ -46,10 +73,7 @@ export const signOutUser = catchAsync(async (req, res) => {
 });
 
 export const getCurrentUserProfile = catchAsync(async (req, res) => {
-  const user = await User.findById(req.id).populate({
-    path: "enrolledCourse.course",
-    select: "title thumbnail description",
-  });
+  const user = await getUserProfile({ userId: req.id });
 
   if (!user) {
     throw new ApiError("User not found", 404);

@@ -2,11 +2,18 @@ import express from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
 import helmet from "helmet";
 import mongooseSanitizer from "express-mongo-sanitize";
 import hpp from "hpp";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import { connectRedis } from "./config/redis.js";
+import { getMetricsSnapshot } from "./config/metrics.js";
+import {
+  requestLoggingMiddleware,
+  tracingMiddleware,
+} from "./middleware/observability.middleware.js";
 import connectDB from "./database/db.js";
 import healthRoute from "./routes/health.route.js";
 import userRoute from "./routes/user.route.js";
@@ -33,6 +40,18 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100,
   message: "Too many request from this IP, Please try again later",
+  standardHeaders: true,
+  legacyHeaders: false,
+  ...(process.env.REDIS_URL
+    ? {
+        store: new RedisStore({
+          sendCommand: async (...args) => {
+            const { default: redisClient } = await import("./config/redis.js");
+            return redisClient.sendCommand(args);
+          },
+        }),
+      }
+    : {}),
 });
 
 //security middleware
@@ -45,6 +64,8 @@ app.use("/api", limiter);
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
+app.use(tracingMiddleware);
+app.use(requestLoggingMiddleware);
 
 //cors configuration
 app.use(
@@ -81,6 +102,12 @@ app.use((req, res, next) => {
 
 //api routes
 app.use("/health", healthRoute);
+app.get("/metrics", (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: getMetricsSnapshot(),
+  });
+});
 app.use("/api/v1/security", securityRoute);
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/courses", courseRoute);
@@ -112,9 +139,14 @@ app.use((err, req, res, next) => {
 
 const startServer = async () => {
   await connectDB();
+  await connectRedis();
   app.listen(port, () => {
     console.log(`Server is running at ${port} in ${process.env.NODE_ENV}`);
   });
 };
 
-startServer();
+if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== "test") {
+  startServer();
+}
+
+export { app, startServer };

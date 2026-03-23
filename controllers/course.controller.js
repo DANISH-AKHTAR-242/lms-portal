@@ -3,7 +3,13 @@ import { Course } from "../models/course.model.js";
 import { CourseProgress } from "../models/courseProgress.js";
 import { Lecture } from "../models/lecture.model.js";
 import { User } from "../models/user.model.js";
-import { uploadMedia, deleteVideoFromCloudinary } from "../utils/cloudinary.js";
+import { deleteVideoFromCloudinary } from "../utils/cloudinary.js";
+import {
+  createLectureAsset,
+  getCourseCatalog,
+  registerCreatedCourse,
+} from "../services/course-lecture.service.js";
+import { trackLectureProgress } from "../services/progress-analytics.service.js";
 
 export const createCourse = catchAsync(async (req, res) => {
   const { title, subtitle, description, category, level, price, thumbnail } =
@@ -20,7 +26,7 @@ export const createCourse = catchAsync(async (req, res) => {
     instructor: req.id,
   });
 
-  await User.findByIdAndUpdate(req.id, { $addToSet: { createdCourses: course._id } });
+  await registerCreatedCourse({ userId: req.id, courseId: course._id });
 
   res.status(201).json({ success: true, data: course });
 });
@@ -93,22 +99,18 @@ export const uploadLecture = catchAsync(async (req, res) => {
     throw new ApiError("Lecture video file is required", 400);
   }
 
-  const uploadResult = await uploadMedia(req.file.path);
-
-  const lecture = await Lecture.create({
-    title,
-    description,
-    videoUrl: uploadResult.secure_url,
-    duration: Number(duration || 0),
-    publicId: uploadResult.public_id,
-    isPreview: String(isPreview) === "true",
-    order: course.lectures.length + 1,
+  const lecture = await createLectureAsset({
+    course,
+    payload: { title, description, duration, isPreview },
+    filePath: req.file.path,
   });
 
-  course.lectures.push(lecture._id);
-  await course.save();
-
   res.status(201).json({ success: true, data: lecture });
+});
+
+export const listCourseCatalog = catchAsync(async (req, res) => {
+  const courses = await getCourseCatalog();
+  res.status(200).json({ success: true, data: courses });
 });
 
 export const viewEnrolledStudents = catchAsync(async (req, res) => {
@@ -196,30 +198,13 @@ export const watchLecture = catchAsync(async (req, res) => {
     throw new ApiError("Enroll in the course to access lectures", 403);
   }
 
-  const progress = await CourseProgress.findOneAndUpdate(
-    { user: req.id, course: courseId },
-    { $setOnInsert: { user: req.id, course: courseId } },
-    { upsert: true, new: true }
-  );
-
-  const existingProgress = progress.lectureProgress.find(
-    (item) => String(item.lecture) === String(lectureId)
-  );
-
-  if (existingProgress) {
-    existingProgress.watchTime = Number(watchTime);
-    existingProgress.isCompleted = Boolean(isCompleted);
-    existingProgress.lastWatched = new Date();
-  } else {
-    progress.lectureProgress.push({
-      lecture: lectureId,
-      watchTime: Number(watchTime),
-      isCompleted: Boolean(isCompleted),
-      lastWatched: new Date(),
-    });
-  }
-
-  await progress.updateLastAccessed();
+  const progress = await trackLectureProgress({
+    userId: req.id,
+    courseId,
+    lectureId,
+    watchTime,
+    isCompleted,
+  });
 
   res.status(200).json({
     success: true,
