@@ -4,19 +4,13 @@ import { useAuthStore } from '../../store/authStore';
 
 export const AUTH_PROFILE_QUERY_KEY = ['auth', 'profile'];
 
-export const useProfileQuery = () => {
-  const setUser = useAuthStore((state) => state.setUser);
-  const clearSession = useAuthStore((state) => state.clearSession);
-
-  return useQuery({
+export const useProfileQuery = () =>
+  useQuery({
     queryKey: AUTH_PROFILE_QUERY_KEY,
     queryFn: getProfile,
     retry: false,
     staleTime: 60_000,
-    onSuccess: (user) => setUser(user),
-    onError: () => clearSession(),
   });
-};
 
 const useAuthMutation = (mutationFn) => {
   const setUser = useAuthStore((state) => state.setUser);
