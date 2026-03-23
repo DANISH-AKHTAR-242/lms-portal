@@ -10,6 +10,7 @@ Production-ready LMS backend built with Express and MongoDB, with JWT cookie aut
 - Redis-backed caching, rate-limit metadata, and token/session support
 - BullMQ workers for async jobs (payments/media/notifications)
 - Metrics endpoints (JSON + Prometheus)
+- SWR cache refresh + stampede lock + queue backpressure-aware degradation
 
 ## Tech Stack
 - Node.js + Express (ES Modules)
@@ -112,7 +113,9 @@ Production-ready LMS backend built with Express and MongoDB, with JWT cookie aut
 - Internal event bus with BullMQ domain events and DLQ support.
 - Retry + circuit breaker around external calls (Razorpay, media upload).
 - Redis cache-aside and startup cache warming.
+- Redis role-separated URLs (`REDIS_CACHE_URL`, `REDIS_QUEUE_URL`, `REDIS_RATE_LIMIT_URL`) with Sentinel-ready config.
 - Refresh token rotation + revocation with Redis-backed token store.
+- Enrollment and lecture progress moved to dedicated collections with pagination-based aggregation reads.
 - Prometheus + Pino + trace propagation (`X-Trace-Id`).
 
 ## Deployment

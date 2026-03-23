@@ -18,4 +18,11 @@ export const httpRequestDuration = new client.Histogram({
   registers: [register],
 });
 
+export const queueDepthGauge = new client.Gauge({
+  name: "lms_queue_depth",
+  help: "Queue depth by queue type",
+  labelNames: ["queue"],
+  registers: [register],
+});
+
 export const metricsRegister = register;

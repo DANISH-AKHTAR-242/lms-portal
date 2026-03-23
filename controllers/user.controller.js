@@ -141,7 +141,8 @@ export const getCurrentUserProfile = catchAsync(async (req, res) => {
     success: true,
     data: {
       ...(typeof user.toJSON === "function" ? user.toJSON() : user),
-      totalEnrolledCourses: user.totalEnrolledCourses || 0,
+      totalEnrolledCourses:
+        user.totalEnrolledCourses || user.totalEnrolledCoursesCount || 0,
     },
   });
 });
