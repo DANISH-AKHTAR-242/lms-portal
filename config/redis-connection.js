@@ -1,3 +1,5 @@
+import IORedis from "ioredis";
+
 const parseSentinels = () => {
   const raw = process.env.REDIS_SENTINELS;
   if (!raw) {
@@ -52,4 +54,3 @@ export const createIORedisClient = (role = "cache", overrides = {}) => {
   }
   return new IORedis({ ...options, ...overrides });
 };
-import IORedis from "ioredis";

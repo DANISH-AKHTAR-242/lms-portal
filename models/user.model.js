@@ -37,7 +37,7 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: "default-avatar.png" },
     bio: {
       type: String,
-      maxLength: [250, "Bio cannot exceed of 250 charaacters"],
+      maxLength: [250, "Bio cannot exceed of 250 characters"],
     },
     createdCourses: [
       {

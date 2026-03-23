@@ -68,7 +68,7 @@ export const getOrSetCacheSWR = async ({
   }
 
   if (cached?.staleUntil && cached.staleUntil > Date.now()) {
-    queueMicrotask(async () => {
+    setImmediate(async () => {
       try {
         await withRedisLock({
           lockKey: `${key}:lock`,

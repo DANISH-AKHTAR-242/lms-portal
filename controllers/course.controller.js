@@ -286,12 +286,9 @@ export const watchLecture = catchAsync(async (req, res) => {
     throw new ApiError("Lecture not found", 404);
   }
 
-  const isEnrolled = await User.exists({
-    _id: req.id,
-  });
   const hasEnrollment = await CourseEnrollment.exists({ user: req.id, course: courseId });
 
-  if (!isEnrolled || !hasEnrollment) {
+  if (!hasEnrollment) {
     throw new ApiError("Enroll in the course to access lectures", 403);
   }
 
