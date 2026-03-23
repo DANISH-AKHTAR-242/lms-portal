@@ -82,7 +82,7 @@ courseSchema.virtual("averageRating").get(function () {
 
 courseSchema.pre("save", function (next) {
   if (this.lectures) {
-    this.totalLectures = this.lectures.lenght;
+    this.totalLectures = this.lectures.length;
   }
   next();
 });

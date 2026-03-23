@@ -16,6 +16,6 @@ export const catchAsync = (fn) => {
 };
 
 //handle jwt token error
-export const jwtError = () => {
-  new AppError("Invalid token. Please log in again", 401);
+export const jwtError = (message = "Invalid token. Please log in again") => {
+  return new ApiError(message, 401);
 };

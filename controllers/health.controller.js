@@ -1,4 +1,4 @@
-import { getDBStatus } from "../database/db";
+import { getDBStatus } from "../database/db.js";
 
 export const checkHealth = async (req, res) => {
   try {
@@ -36,7 +36,6 @@ export const checkHealth = async (req, res) => {
   }
 };
 
-//utility method
 function getReadyStateText(state) {
   switch (state) {
     case 0:
@@ -47,7 +46,6 @@ function getReadyStateText(state) {
       return "Connecting";
     case 3:
       return "Disconnecting";
-
     default:
       return "Unkown";
   }

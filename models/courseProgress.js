@@ -55,6 +55,8 @@ const courseProgressSchema = new mongoose.Schema(
   }
 );
 
+courseProgressSchema.index({ user: 1, course: 1 }, { unique: true });
+
 //update last accessed
 courseProgressSchema.methods.updateLastAccessed = function () {
   this.lastAccessed = Date.now();
@@ -71,5 +73,11 @@ courseProgressSchema.pre("save", function (next) {
       (completedLectures / this.lectureProgress.length) * 100
     );
     this.isCompleted = this.completionPersentage === 100;
+  } else {
+    this.completionPersentage = 0;
+    this.isCompleted = false;
   }
+  next();
 });
+
+export const CourseProgress = mongoose.model("CourseProgress", courseProgressSchema);

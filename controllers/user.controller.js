@@ -25,9 +25,11 @@ export const createUserAccount = catchAsync(async (req, res) => {
 export const authenticateUser = catchAsync(async (req, res) => {
   const { email, password } = req.body;
 
-  const user = User.findOne({ email: email.toLowerCase() }).select("+password");
+  const user = await User.findOne({ email: email.toLowerCase() }).select(
+    "+password"
+  );
 
-  if (!user || (await user.comparePassword(password))) {
+  if (!user || !(await user.comparePassword(password))) {
     throw new ApiError("Invalid email or password", 401);
   }
 
@@ -44,10 +46,11 @@ export const signOutUser = catchAsync(async (req, res) => {
 });
 
 export const getCurrentUserProfile = catchAsync(async (req, res) => {
-  const user = User.findById(req.id).populate({
-    path: "enrolledCourses.course",
+  const user = await User.findById(req.id).populate({
+    path: "enrolledCourse.course",
     select: "title thumbnail description",
   });
+
   if (!user) {
     throw new ApiError("User not foound", 404);
   }
@@ -88,7 +91,7 @@ export const updateUser = catchAsync(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Updated the data successfully",
-    data: updateData,
+    data: updatedUser,
   });
 });
 
