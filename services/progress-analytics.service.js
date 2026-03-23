@@ -1,5 +1,6 @@
-import redisClient from "../config/redis.js";
+import { eventBus, DOMAIN_EVENTS } from "../config/event-bus.js";
 import { CourseProgress } from "../models/courseProgress.js";
+import { enqueueAnalyticsEvent } from "../config/queues.js";
 
 export const ensureCourseProgress = async ({ userId, courseId }) =>
   CourseProgress.findOneAndUpdate(
@@ -8,7 +9,14 @@ export const ensureCourseProgress = async ({ userId, courseId }) =>
     { upsert: true, new: true }
   );
 
-export const trackLectureProgress = async ({ userId, courseId, lectureId, watchTime = 0, isCompleted = false }) => {
+export const trackLectureProgress = async ({
+  userId,
+  courseId,
+  lectureId,
+  watchTime = 0,
+  isCompleted = false,
+  traceId,
+}) => {
   const progress = await ensureCourseProgress({ userId, courseId });
 
   const existingProgress = progress.lectureProgress.find(
@@ -30,9 +38,19 @@ export const trackLectureProgress = async ({ userId, courseId, lectureId, watchT
 
   await progress.updateLastAccessed();
 
-  if (redisClient?.isOpen) {
-    await redisClient.incr(`analytics:lecture_watch:${courseId}`);
-  }
+  const analyticsPayload = {
+    eventId: `lecture-watched-${userId}-${courseId}-${lectureId}`,
+    eventType: DOMAIN_EVENTS.LECTURE_WATCHED,
+    userId: String(userId),
+    courseId: String(courseId),
+    lectureId: String(lectureId),
+    watchTime: Number(watchTime),
+    isCompleted: Boolean(isCompleted),
+    traceId,
+    occurredAt: new Date().toISOString(),
+  };
+  await enqueueAnalyticsEvent(analyticsPayload);
+  await eventBus.emit(DOMAIN_EVENTS.LECTURE_WATCHED, analyticsPayload);
 
   return progress;
 };

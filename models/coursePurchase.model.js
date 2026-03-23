@@ -63,6 +63,9 @@ const coursePurchaseSchema = new mongoose.Schema(
 
 // Index for faster queries
 coursePurchaseSchema.index({ user: 1, course: 1 });
+coursePurchaseSchema.index({ user: 1, status: 1, createdAt: -1 });
+coursePurchaseSchema.index({ paymentId: 1 }, { unique: true });
+coursePurchaseSchema.index({ course: 1, status: 1 });
 coursePurchaseSchema.index({ status: 1 });
 coursePurchaseSchema.index({ createdAt: -1 });
 

@@ -1,24 +1,21 @@
-const formatLog = (level, message, meta = {}) => {
-  const payload = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    ...meta,
-  };
+import pino from "pino";
 
-  return JSON.stringify(payload);
-};
+const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  base: undefined,
+  timestamp: pino.stdTimeFunctions.isoTime,
+  redact: {
+    paths: [
+      "req.headers.authorization",
+      "req.headers.cookie",
+      "password",
+      "*.password",
+      "token",
+      "*.token",
+    ],
+    remove: true,
+  },
+});
 
-export const logger = {
-  info(message, meta = {}) {
-    console.log(formatLog("info", message, meta));
-  },
-  warn(message, meta = {}) {
-    console.warn(formatLog("warn", message, meta));
-  },
-  error(message, meta = {}) {
-    console.error(formatLog("error", message, meta));
-  },
-};
-
+export { logger };
 export default logger;

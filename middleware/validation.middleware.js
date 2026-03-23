@@ -1,4 +1,5 @@
 import { body, param, query, validationResult } from "express-validator";
+import { ZodError } from "zod";
 import { ApiError } from "./error.middleware.js";
 
 export const validate = (validations) => {
@@ -70,3 +71,30 @@ export const validateObjectIdParam = (field) =>
 export const validateEnroll = validate([
   body("courseId").isMongoId().withMessage("courseId must be a valid ObjectId"),
 ]);
+
+export const validateWithZod = (schema) => (req, res, next) => {
+  try {
+    const parsed = schema.parse({
+      body: req.body,
+      params: req.params,
+      query: req.query,
+    });
+    req.validated = parsed;
+    next();
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return next(
+        new ApiError(
+          JSON.stringify(
+            error.issues.map((issue) => ({
+              field: issue.path.join("."),
+              message: issue.message,
+            }))
+          ),
+          400
+        )
+      );
+    }
+    return next(error);
+  }
+};
