@@ -68,15 +68,15 @@ index.js      Main app bootstrap
 - Redis (recommended for production-like setup)
 
 ## Frontend App
-Frontend source is in `/frontend`.
+Frontend source is in `frontend/`.
 
-Frontend env setup:
+Frontend environment setup:
 ```bash
 cp frontend/.env.example frontend/.env
 ```
 
 Frontend environment variables:
-- `VITE_API_URL` (default backend URL, e.g. `http://localhost:5000`)
+- `VITE_API_URL` (default backend URL, e.g., `http://localhost:5000`)
 - `VITE_RAZORPAY_KEY_ID` (public Razorpay key)
 
 ## Environment Variables
@@ -150,19 +150,16 @@ cp .env.example .env
    ```bash
    cd frontend && npm install
    ```
-3. Configure backend environment:
+3. Configure environment files:
    ```bash
    cp .env.example .env
-   ```
-4. Configure frontend environment:
-   ```bash
    cp frontend/.env.example frontend/.env
    ```
-5. Start the backend server:
+4. Start the backend server:
    ```bash
    npm run dev
    ```
-6. Start the frontend app (new terminal):
+5. Start the frontend app (new terminal):
    ```bash
    cd frontend && npm run dev
    ```
@@ -207,7 +204,7 @@ Notes:
   TEST_MONGODB_URI=mongodb://127.0.0.1:27017/lms_test npm test
   ```
 
-Frontend quality checks:
+Frontend validation:
 ```bash
 cd frontend && npm run lint
 cd frontend && npm run build
